@@ -9,19 +9,30 @@ import { MessageBuilder } from "@/components/edit-mode"
 import { REPLIES, CHATS } from "@/constants"
 
 function Widget() {
-  // добавлены avatarSrc, wallpaperSrc
+  // добавлены avatarSrc, wallpaperSrc, msgImageHash, msgImageSrc
   const {
-    chatId, displayMode, viewport, theme, isEditMode,
-    avatarHash, wallpaperHash,
-    avatarSrc, wallpaperSrc,
+    chatId,
+    displayMode,
+    viewport,
+    theme,
+    isEditMode,
+    avatarHash,
+    wallpaperHash,
+    avatarSrc,
+    wallpaperSrc,
+    msgImageHash,
+    msgImageSrc,
   } = useWidgetMenu()
 
+  // State Management (Constrained to chatId)
   const [chatState, setChatState] = useDynamicState<ChatState>({ messages: CHATS[chatId] })
   const [editorState, setEditorState] = useDynamicState<EditorState>({ ...REPLIES[chatId], hidePreview: false })
+
   const showPreview = isEditMode && !editorState.hidePreview
 
   return (
     <AutoLayout name="Widget Container" width={"hug-contents"} height={"hug-contents"} overflow="visible">
+      {/* Generated Chat (Displayed Result) */}
       <PhoneFrame renderElements={displayMode <= 0} theme={theme}>
         <Interface
           renderElements={displayMode <= 1}
@@ -34,15 +45,27 @@ function Widget() {
           avatarSrc={avatarSrc}
         >
           <MessagesLayout renderElements={displayMode <= 2} messages={chatState.messages} theme={theme}>
-            {showPreview && <MessagePreview editorState={editorState} theme={theme} />}
+            {/* Preview Message */}
+            {showPreview && (
+              <MessagePreview
+                editorState={editorState}
+                theme={theme}
+                msgImageHash={msgImageHash ?? null}
+                msgImageSrc={msgImageSrc ?? null}
+              />
+            )}
           </MessagesLayout>
         </Interface>
       </PhoneFrame>
 
-      <MessageBuilder renderElement={isEditMode} editorManager={[editorState, setEditorState, setChatState]} theme={theme} />
+      {/* Editor Mode (New Message Constructor) */}
+      <MessageBuilder
+        renderElement={isEditMode}
+        editorManager={[editorState, setEditorState, setChatState]}
+        theme={theme}
+      />
     </AutoLayout>
   )
 }
-
 
 widget.register(Widget)

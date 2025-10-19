@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      body { font: 13px/1.4 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; margin: 12px; }
+      body { font: 13px/1.4 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; margin: 12px; color:#1b1b1b; }
       h3 { margin: 12px 0 6px; }
-      .card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+      .card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin-bottom: 12px; background:#fff; }
       .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
       .hash { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; color: #666; }
       button { padding: 6px 10px; border-radius: 6px; border: 1px solid #d0d0d0; background: #fff; cursor: pointer; }
@@ -16,47 +16,72 @@
     </style>
   </head>
   <body>
+    <!-- AVATAR -->
     <div class="card">
       <h3>Avatar</h3>
       <div class="row">
-        <img id="p-avatar" class="preview" />
+        <img id="p-avatar" class="preview" alt="">
         <div>
           <div class="row">
             <button class="primary" id="pick-avatar">Choose image</button>
             <button id="upload-avatar">Upload</button>
             <button id="clear-avatar">Clear</button>
           </div>
-          <div class="hash" id="hash-avatar"></div>
+          <div class="hash" id="hash-avatar">(empty)</div>
           <div class="hint">Saved to Shared Plugin Data: <b>tg_vault / avatarHash</b></div>
         </div>
       </div>
     </div>
 
+    <!-- WALLPAPER -->
     <div class="card">
       <h3>Wallpaper</h3>
       <div class="row">
-        <img id="p-wallpaper" class="preview" />
+        <img id="p-wallpaper" class="preview" alt="">
         <div>
           <div class="row">
             <button class="primary" id="pick-wallpaper">Choose image</button>
             <button id="upload-wallpaper">Upload</button>
             <button id="clear-wallpaper">Clear</button>
           </div>
-          <div class="hash" id="hash-wallpaper"></div>
-          <div class="hint">Saved to Shared Plugin Data: <b>tg-vault / wallpaperHash</b></div>
+          <div class="hash" id="hash-wallpaper">(empty)</div>
+          <div class="hint">Saved to Shared Plugin Data: <b>tg_vault / wallpaperHash</b> (+ chunks)</div>
         </div>
       </div>
     </div>
 
+    <!-- MESSAGE IMAGE -->
+    <div class="card">
+      <h3>Message Image</h3>
+      <div class="row">
+        <img id="p-message" class="preview" alt="">
+        <div>
+          <div class="row">
+            <button class="primary" id="pick-message">Choose image</button>
+            <button id="upload-message">Upload</button>
+            <button id="clear-message">Clear</button>
+          </div>
+          <div class="hash" id="hash-message">(empty)</div>
+          <div class="hint">Saved to Shared Plugin Data: <b>tg_vault / messageImageHash</b> (+ chunks)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden file inputs -->
     <input id="file-avatar" type="file" accept="image/*" />
     <input id="file-wallpaper" type="file" accept="image/*" />
+    <input id="file-message" type="file" accept="image/*" />
 
     <script>
       const $ = (id) => document.getElementById(id);
 
-      const state = { avatarBytes: null, wallpaperBytes: null };
+      const state = {
+        avatar: { bytes: null, mime: "" },
+        wallpaper: { bytes: null, mime: "" },
+        message: { bytes: null, mime: "" },
+      };
 
-      function readFileAsBytes(file, previewEl) {
+      function readFile(file, previewEl, key) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
@@ -64,7 +89,9 @@
             const bytes = Array.from(new Uint8Array(arrayBuffer));
             const blobUrl = URL.createObjectURL(file);
             previewEl.src = blobUrl;
-            resolve(bytes);
+            state[key].bytes = bytes;
+            state[key].mime = file.type || "image/png";
+            resolve();
           };
           reader.onerror = reject;
           reader.readAsArrayBuffer(file);
@@ -74,49 +101,72 @@
       // Pickers
       $("pick-avatar").onclick = () => $("file-avatar").click();
       $("pick-wallpaper").onclick = () => $("file-wallpaper").click();
+      $("pick-message").onclick = () => $("file-message").click();
 
       $("file-avatar").onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        state.avatarBytes = await readFileAsBytes(file, $("p-avatar"));
+        const f = e.target.files && e.target.files[0]; if (!f) return;
+        await readFile(f, $("p-avatar"), "avatar");
       };
-
       $("file-wallpaper").onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        state.wallpaperBytes = await readFileAsBytes(file, $("p-wallpaper"));
+        const f = e.target.files && e.target.files[0]; if (!f) return;
+        await readFile(f, $("p-wallpaper"), "wallpaper");
+      };
+      $("file-message").onchange = async (e) => {
+        const f = e.target.files && e.target.files[0]; if (!f) return;
+        await readFile(f, $("p-message"), "message");
       };
 
-      // Upload
-      $("upload-avatar").onclick = () => {
-        if (!state.avatarBytes) return alert("Choose an image first");
-        parent.postMessage({ pluginMessage: { type: "upload", role: "avatar", bytes: state.avatarBytes } }, "*");
-      };
-      $("upload-wallpaper").onclick = () => {
-        if (!state.wallpaperBytes) return alert("Choose an image first");
-        parent.postMessage({ pluginMessage: { type: "upload", role: "wallpaper", bytes: state.wallpaperBytes } }, "*");
-      };
+      // Upload helpers
+      function upload(role) {
+        const data = state[role];
+        if (!data.bytes) return alert("Choose an image first");
+        parent.postMessage({ pluginMessage: { type: "upload", role, bytes: data.bytes, mime: data.mime } }, "*");
+      }
+      function clear(role) {
+        // сброс превьюшки
+        if (role === "avatar") $("p-avatar").src = "";
+        if (role === "wallpaper") $("p-wallpaper").src = "";
+        if (role === "message") $("p-message").src = "";
+        // сброс state
+        state[role].bytes = null; state[role].mime = "";
+        parent.postMessage({ pluginMessage: { type: "clear", role } }, "*");
+      }
 
-      // Clear
-      $("clear-avatar").onclick = () => parent.postMessage({ pluginMessage: { type: "clear", role: "avatar" } }, "*");
-      $("clear-wallpaper").onclick = () => parent.postMessage({ pluginMessage: { type: "clear", role: "wallpaper" } }, "*");
+      // Upload buttons
+      $("upload-avatar").onclick = () => upload("avatar");
+      $("upload-wallpaper").onclick = () => upload("wallpaper");
+      $("upload-message").onclick = () => upload("message");
 
-      // Init: read existing hashes
+      // Clear buttons
+      $("clear-avatar").onclick = () => clear("avatar");
+      $("clear-wallpaper").onclick = () => clear("wallpaper");
+      $("clear-message").onclick = () => clear("message");
+
+      // Init: read existing hashes/dataURLs
       parent.postMessage({ pluginMessage: { type: "read" } }, "*");
 
-      // Backchannel
+      // Backchannel from plugin code.js
       onmessage = (event) => {
-        const msg = event.data.pluginMessage;
+        const msg = event.data && event.data.pluginMessage;
         if (!msg) return;
 
         if (msg.type === "state") {
+          // hashes
           $("hash-avatar").textContent = msg.avatarHash || "(empty)";
           $("hash-wallpaper").textContent = msg.wallpaperHash || "(empty)";
+          $("hash-message").textContent = msg.messageImgHash || "(empty)";
+          // previews (dataURL)
+          if (msg.avatarDataURL) $("p-avatar").src = msg.avatarDataURL;
+          if (msg.wallpaperDataURL) $("p-wallpaper").src = msg.wallpaperDataURL;
+          if (msg.messageImageDataURL) $("p-message").src = msg.messageImageDataURL;
         }
+
         if (msg.type === "done") {
-          if (msg.role === "avatar") $("hash-avatar").textContent = msg.hash || "(cleared)";
-          if (msg.role === "wallpaper") $("hash-wallpaper").textContent = msg.hash || "(cleared)";
+          if (msg.role === "avatar")   $("hash-avatar").textContent = msg.hash || "(cleared)";
+          if (msg.role === "wallpaper")$("hash-wallpaper").textContent = msg.hash || "(cleared)";
+          if (msg.role === "message")  $("hash-message").textContent = msg.hash || "(cleared)";
         }
+
         if (msg.type === "error") {
           alert("Plugin error: " + msg.message);
         }
