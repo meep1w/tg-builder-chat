@@ -1,0 +1,10 @@
+{
+  "name": "Telegram Widget — Asset Vault",
+  "id": "YOUR_UNIQUE_PLUGIN_ID_TG_VAULT",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma", "figjam"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
+}
