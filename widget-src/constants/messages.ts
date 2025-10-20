@@ -168,4 +168,14 @@ export const REPLY_BOT: Message = {
 }
 
 /** default */
-export const EDITOR_STATE: Message = { dir: 0, type: 1, text: "Sample Text", name: "File_Name", size: "1.4", extension: ".PNG", isImg: true, buttons: [] }
+export const EDITOR_STATE: Message = {
+  dir: 0,
+  type: 1,
+  text: "Sample Text",
+  name: "File_Name",
+  size: "1.4",
+  extension: ".PNG",
+  isImg: true,
+  buttons: [],
+  imgSrc: "", // ← новое поле для картинки сообщения (dataURL)
+}

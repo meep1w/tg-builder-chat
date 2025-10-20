@@ -7,11 +7,18 @@ const VAULT_NS = "tg_vault" as const
 const LEGACY_VAULT_NS = "tg-vault" as const // fallback на старый ns
 
 const VAULT_KEYS = { avatar: "avatarHash", wallpaper: "wallpaperHash" } as const
-const DATA_KEYS = { avatar: "avatarDataURL" } as const // wallpaper dataURL храним чанками
-const WALL = { prefix: "wallpaperDataURL_", meta: "wallpaperChunks" } as const
+const DATA_KEYS = { avatar: "avatarDataURL" } as const // legacy (single key)
 
-// безопасное чтение SPD
+// Chunk key sets
+const AVATAR = { prefix: "avatarDataURL_", meta: "avatarChunks" } as const
+const WALL   = { prefix: "wallpaperDataURL_", meta: "wallpaperChunks" } as const
+
+// ---- SAFE SPD READ: currentPage -> root (fallback) ----
 function safeGetShared(ns: string, key: string): string {
+  try {
+    const pageVal = figma.currentPage.getSharedPluginData(ns, key) || ""
+    if (pageVal) return pageVal
+  } catch {}
   try {
     return figma.root.getSharedPluginData(ns, key) || ""
   } catch {
@@ -19,17 +26,17 @@ function safeGetShared(ns: string, key: string): string {
   }
 }
 
-// собрать dataURL обоев из чанков
-function readWallpaperDataURL(): string {
+// Assemble dataURL from chunks (works with both namespaces)
+function readDataURLFromChunks(metaKey: string, prefix: string): string {
   const meta =
-    safeGetShared(VAULT_NS, WALL.meta) || safeGetShared(LEGACY_VAULT_NS, WALL.meta)
+    safeGetShared(VAULT_NS, metaKey) || safeGetShared(LEGACY_VAULT_NS, metaKey)
   const count = Number(meta) || 0
   if (!count) return ""
   let out = ""
   for (let i = 0; i < count; i++) {
     out +=
-      safeGetShared(VAULT_NS, `${WALL.prefix}${i}`) ||
-      safeGetShared(LEGACY_VAULT_NS, `${WALL.prefix}${i}`) ||
+      safeGetShared(VAULT_NS, `${prefix}${i}`) ||
+      safeGetShared(LEGACY_VAULT_NS, `${prefix}${i}`) ||
       ""
   }
   return out
@@ -62,7 +69,7 @@ const defaultConfig: useWidgetMenuConfig["config"] = {
 }
 
 export default function useWidgetMenu({ config = defaultConfig }: Partial<useWidgetMenuConfig> = {}) {
-  // initial из SPD
+  // Initial values from SPD (hashes)
   const initialAvatarHash: string | null =
     config.avatarHash ??
     (safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar) || null)
@@ -71,12 +78,16 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
     config.wallpaperHash ??
     (safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper) || null)
 
+  // Sources (dataURL): try chunked first, then legacy single-key
   const initialAvatarSrc: string | null =
     config.avatarSrc ??
-    (safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar) || null)
+    (readDataURLFromChunks(AVATAR.meta, AVATAR.prefix) ||
+      safeGetShared(VAULT_NS, DATA_KEYS.avatar) ||
+      safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar) ||
+      null)
 
   const initialWallpaperSrc: string | null =
-    config.wallpaperSrc ?? (readWallpaperDataURL() || null)
+    config.wallpaperSrc ?? (readDataURLFromChunks(WALL.meta, WALL.prefix) || null)
 
   /* State */
   const chatPresets = [
@@ -160,7 +171,9 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
             const hash =
               safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
             const data =
-              safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
+              readDataURLFromChunks(AVATAR.meta, AVATAR.prefix) ||
+              safeGetShared(VAULT_NS, DATA_KEYS.avatar) ||
+              safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
 
             if (hash || data) {
               if (hash) setAvatarHash(hash)
@@ -175,7 +188,7 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
           case "uploadWallpaper": {
             const hash =
               safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
-            const data = readWallpaperDataURL()
+            const data = readDataURLFromChunks(WALL.meta, WALL.prefix)
 
             if (hash || data) {
               if (hash) setWallpaperHash(hash)
@@ -188,17 +201,14 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
           }
 
           case "debugReadHashes": {
-            const a =
-              safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
-            const w =
-              safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
-            const aSrc =
-              safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
-            const wMeta =
-              safeGetShared(VAULT_NS, WALL.meta) || safeGetShared(LEGACY_VAULT_NS, WALL.meta)
+            const a  = safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
+            const w  = safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
+            const aLegacySrc = safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
+            const aMeta = safeGetShared(VAULT_NS, AVATAR.meta) || safeGetShared(LEGACY_VAULT_NS, AVATAR.meta)
+            const wMeta = safeGetShared(VAULT_NS, WALL.meta)   || safeGetShared(LEGACY_VAULT_NS, WALL.meta)
 
             figma.notify?.(
-              `Avatar: ${a || "(empty)"}; src: ${aSrc ? "[dataURL]" : "(empty)"} | ` +
+              `Avatar: ${a || "(empty)"}; chunks: ${aMeta || 0}${aLegacySrc ? " + legacy[dataURL]" : ""} | ` +
               `Wallpaper: ${w || "(empty)"}; chunks: ${wMeta || 0}`
             )
             break

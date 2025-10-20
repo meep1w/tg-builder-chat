@@ -11,6 +11,8 @@ declare global {
       size: string
       extension: string
       isImg: boolean
+      /** dataURL для изображения сообщения из плагина-вальта */
+      imgSrc?: string
       buttons: {
          id: number
          text: string

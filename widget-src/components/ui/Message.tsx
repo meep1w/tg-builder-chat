@@ -80,6 +80,9 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
       ],
    } as const
 
+   // Новое: берём возможный dataURL картинки из Message
+   const imgSrc = (props as unknown as Message).imgSrc
+
    function Container({ children }: Partial<AutoLayoutProps>) {
       return (
          <AutoLayout
@@ -87,10 +90,7 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
             effect={{
                type: "drop-shadow",
                color: "#00000040",
-               offset: {
-                  x: 0,
-                  y: 4,
-               },
+               offset: { x: 0, y: 4 },
                blur: 22.6,
                showShadowBehindNode: false,
             }}
@@ -101,14 +101,8 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
             <TailAtom
                {...reqChildProps}
                name="_tail-atom"
-               x={{
-                  type: layout.tailX[dir],
-                  offset: -6.077,
-               }}
-               y={{
-                  type: "bottom",
-                  offset: -1,
-               }}
+               x={{ type: layout.tailX[dir], offset: -6.077 }}
+               y={{ type: "bottom", offset: -1 }}
                positioning="absolute"
             />
             <AutoLayout
@@ -117,10 +111,7 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
                direction="vertical"
                cornerRadius={layout.radius[dir]}
                spacing={6}
-               padding={{
-                  vertical: 8,
-                  horizontal: props.type === 0 ? 8 : 14,
-               }}
+               padding={{ vertical: 8, horizontal: props.type === 0 ? 8 : 14 }}
             >
                {children}
             </AutoLayout>
@@ -129,14 +120,8 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
                color={color.text[`label${props.type === 2 ? 0 : dir}`]}
                dir={dir}
                name="_status-atom"
-               x={{
-                  type: "right",
-                  offset: 12,
-               }}
-               y={{
-                  type: "bottom",
-                  offset: 4,
-               }}
+               x={{ type: "right", offset: 12 }}
+               y={{ type: "bottom", offset: 4 }}
                positioning="absolute"
                width={43}
             />
@@ -148,18 +133,16 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
       case 0: {
          // File
          const { name, size, extension, isImg } = props
+         const previewSrc = isImg ? (imgSrc || PreviewImage64) : ICON_MAP[theme][dir]
          return (
             <Container>
                <AutoLayout name="Conent File" minWidth={100} overflow="visible" verticalAlignItems="center">
-                  <Image name="Preview" cornerRadius={11} strokeWidth={0} strokeAlign="center" width={74} height={74} src={isImg ? PreviewImage64 : ICON_MAP[theme][dir]} />
+                  <Image name="Preview" cornerRadius={11} strokeWidth={0} strokeAlign="center" width={74} height={74} src={previewSrc} />
                   <AutoLayout
                      name="Stats"
                      overflow="visible"
                      direction="vertical"
-                     padding={{
-                        vertical: 0,
-                        horizontal: 8,
-                     }}
+                     padding={{ vertical: 0, horizontal: 8 }}
                   >
                      <AutoLayout name="Frame 3" overflow="visible" width="fill-parent">
                         <Text name="IMG_0475.PNG" fill={color.text[`primary${dir}`]} lineHeight={21} letterSpacing={-0.3} strokeWidth={0} strokeAlign="center">
@@ -199,21 +182,14 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
       case 2: {
          // Image
          const { text } = props
+         const previewSrc = imgSrc || PreviewImage64
          return (
             <Container>
                <AutoLayout name="Content Image" minHeight={!text ? 150 : 135} minWidth={!text ? 250 : 118} overflow="visible" direction="vertical" spacing={8} width="fill-parent">
                   <Image
                      name="Rectangle 1"
-                     x={{
-                        type: "left-right",
-                        leftOffset: -13,
-                        rightOffset: -13,
-                     }}
-                     y={{
-                        type: "top-bottom",
-                        topOffset: -7,
-                        bottomOffset: !text ? -7 : 0,
-                     }}
+                     x={{ type: "left-right", leftOffset: -13, rightOffset: -13 }}
+                     y={{ type: "top-bottom", topOffset: -7, bottomOffset: !text ? -7 : 0 }}
                      positioning="absolute"
                      cornerRadius={{
                         topLeft: layout.radius[dir].topLeft - 1,
@@ -223,7 +199,7 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
                      }}
                      width={276}
                      height={142}
-                     src={PreviewImage64}
+                     src={previewSrc}
                   />
                </AutoLayout>
                <AutoLayout name="Content Text" hidden={!text} maxWidth={250} overflow="visible" spacing={8}>

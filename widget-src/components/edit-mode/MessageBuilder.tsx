@@ -20,12 +20,12 @@ interface MessageBuilderProps extends Partial<AutoLayoutProps>, ReqCompProps {
 }
 
 export function MessageBuilder({ editorManager, renderElement, theme, ...props }: MessageBuilderProps) {
-   const [{ dir, type, text, name, extension, size, buttons, hidePreview, isImg }, setEditorState, setChatState] = editorManager
+   const [{ dir, type, text, name, extension, size, buttons, hidePreview, isImg, imgSrc }, setEditorState, setChatState] = editorManager
 
    /** Reset all Inputs to default */
    const resetInputs = () => {
       Object.entries(EDITOR_STATE).map(([key, value]) => {
-         setEditorState(key as keyof EditorState, value)
+         setEditorState(key as keyof EditorState, value as never)
       })
    }
 
@@ -63,10 +63,35 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
       setEditorState("buttons", [...buttons, [{ id: 1, text: `Button ${buttons.length}-1`, hasRef: false }]])
    }
 
+   /** Read message image from SPD tg_vault */
+   const loadMessageImageFromVault = () => {
+      const page = figma.currentPage
+      try {
+         const n = parseInt(page.getSharedPluginData("tg_vault", "messageImageChunks") || "0", 10)
+         if (!n || Number.isNaN(n)) {
+            figma.notify("No Message Image in vault")
+            return
+         }
+         let out = ""
+         for (let i = 0; i < n; i++) {
+            out += page.getSharedPluginData("tg_vault", `messageImageDataURL_${i}`) || ""
+         }
+         if (out && out.startsWith("data:image/")) {
+            setEditorState("imgSrc", out)
+            figma.notify("Message Image loaded")
+         } else {
+            figma.notify("Message Image not found or invalid")
+         }
+      } catch (e) {
+         console.warn("loadMessageImageFromVault", e)
+         figma.notify("Failed to read Message Image")
+      }
+   }
+
    const addMessageToChat = () => {
       setEditorState("dir", (prev) => ((prev + 1) % EDITOR_INPUTS.dir.map.length) as typeof prev) // Toggle Direction
 
-      const newMessage = { dir, type, text, name, extension, size, buttons, isImg }
+      const newMessage: Message = { dir, type, text, name, extension, size, buttons, isImg, imgSrc }
       setChatState("messages", (prevMessages) => {
          // Array of In & Out Messages
          const allMsgs = [...(prevMessages ?? [])]
@@ -156,20 +181,14 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
                {
                   type: "drop-shadow",
                   color: "#00000059",
-                  offset: {
-                     x: 0,
-                     y: 3,
-                  },
+                  offset: { x: 0, y: 3 },
                   blur: 26,
                   showShadowBehindNode: false,
                },
                {
                   type: "drop-shadow",
                   color: "#00000040",
-                  offset: {
-                     x: 0,
-                     y: 4,
-                  },
+                  offset: { x: 0, y: 4 },
                   blur: 108.5,
                   showShadowBehindNode: false,
                },
@@ -178,10 +197,7 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
             cornerRadius={16}
             direction="vertical"
             spacing={24}
-            padding={{
-               vertical: 32,
-               horizontal: 16,
-            }}
+            padding={{ vertical: 32, horizontal: 16 }}
             height={"hug-contents"}
             horizontalAlignItems="center"
             stroke={color.surface.primary30}
@@ -196,9 +212,7 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
                </Text>
                <Icon
                   tooltip={hidePreview ? "Show Preview Message" : "Hide Preview Message"}
-                  onEvent={() => {
-                     setEditorState("hidePreview", (bool) => !bool)
-                  }}
+                  onEvent={() => { setEditorState("hidePreview", (bool) => !bool) }}
                   icon={hidePreview ? "show" : "hide"}
                   theme={theme}
                   opacity={hidePreview ? 1 : 0.5}
@@ -207,122 +221,80 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
                />
                <Icon
                   tooltip="Reset New Message Inputs"
-                  onEvent={() => {
-                     resetInputs()
-                  }}
+                  onEvent={() => { resetInputs() }}
                   icon={"reset"}
                   theme={theme}
                   color={color.text.default as string}
                />
             </Section>
+
             {/* Direction */}
             <Section>
                <Label colorPalette={color}>Message Direction</Label>
                <Selector
-                  onEvent={(_, i) => {
-                     setEditorState("dir", i)
-                  }}
+                  onEvent={(_, i) => { setEditorState("dir", i) }}
                   value={dir}
                   options={[...EDITOR_INPUTS.dir.map]}
                   tips={[...EDITOR_INPUTS.dir.tips]}
                   colorPalette={color}
                />
             </Section>
+
             {/* Type */}
             <Section>
                <Label colorPalette={color}>Message Type</Label>
                <Selector
-                  onEvent={(_, i) => {
-                     setEditorState("type", i)
-                  }}
+                  onEvent={(_, i) => { setEditorState("type", i) }}
                   value={type}
                   options={[...EDITOR_INPUTS.type.map]}
                   tips={[...EDITOR_INPUTS.type.tips]}
                   colorPalette={color}
                />
             </Section>
+
             {/* Message Type File */}
             <Section hidden={type !== 0}>
                <Label colorPalette={color}>Image Details</Label>
-               <TextInput
-                  onEvent={(e) => {
-                     setEditorState("name", e.characters)
-                  }}
-                  value={name}
-                  placeholder="Image/ File Name"
-                  colorPalette={color}
-               />
-               <TextInput
-                  onEvent={(e) => {
-                     setEditorState("extension", e.characters)
-                  }}
-                  value={extension}
-                  placeholder="Image/ File Extension"
-                  colorPalette={color}
-               />
-               <TextInput
-                  onEvent={(e) => {
-                     setEditorState("size", e.characters)
-                  }}
-                  value={size}
-                  placeholder="Image/ File Size"
-                  colorPalette={color}
-               />
+               <TextInput onEvent={(e) => { setEditorState("name", e.characters) }} value={name} placeholder="Image/ File Name" colorPalette={color} />
+               <TextInput onEvent={(e) => { setEditorState("extension", e.characters) }} value={extension} placeholder="Image/ File Extension" colorPalette={color} />
+               <TextInput onEvent={(e) => { setEditorState("size", e.characters) }} value={size} placeholder="Image/ File Size" colorPalette={color} />
                <ButtonsSection />
-               <AutoLayout
-                  onClick={() => setEditorState("isImg", (prev) => !prev)}
-                  tooltip="File Preview Is Image"
-                  width={"fill-parent"}
-                  spacing={8}
-                  padding={{ vertical: 0, horizontal: 16 }}
-                  verticalAlignItems="center"
-               >
+               <AutoLayout onClick={() => setEditorState("isImg", (prev) => !prev)} tooltip="File Preview Is Image" width={"fill-parent"} spacing={8} padding={{ vertical: 0, horizontal: 16 }} verticalAlignItems="center">
                   <Text name="title" fill={color.text.default} width="fill-parent" lineHeight={22} fontSize={17} fontWeight={500}>
                      Compressed Image
                   </Text>
                   <Slider onEvent={console.log} value={isImg} colorPalette={color} />
                </AutoLayout>
             </Section>
+
             {/* Message Type Text */}
             <Section hidden={type !== 1}>
                <Label colorPalette={color}>Message Content</Label>
-               <TextInput
-                  onEvent={(e) => {
-                     setEditorState("text", e.characters)
-                  }}
-                  value={text}
-                  placeholder="Text Message..."
-                  isResizable={true}
-                  colorPalette={color}
-               />
+               <TextInput onEvent={(e) => { setEditorState("text", e.characters) }} value={text} placeholder="Text Message..." isResizable={true} colorPalette={color} />
                <ButtonsSection />
             </Section>
+
             {/* Message Type Image */}
             <Section hidden={type !== 2}>
                <Label colorPalette={color}>Message Content</Label>
-               <TextInput
-                  onEvent={(e) => {
-                     setEditorState("text", e.characters)
-                  }}
-                  value={text}
-                  placeholder="Text Message..."
-                  isResizable={true}
-                  colorPalette={color}
-               />
+               <TextInput onEvent={(e) => { setEditorState("text", e.characters) }} value={text} placeholder="Text Message..." isResizable={true} colorPalette={color} />
                <ButtonsSection />
-               <TextInput
-                  onEvent={console.log} // TODO: Accept https
-                  value={"Preview Image"}
-                  placeholder="Image Source"
-                  opacity={0.5}
-                  colorPalette={color}
-               />
+               {/* NEW: Load image from vault instead of text input */}
+               <Button onEvent={loadMessageImageFromVault} colorPalette={color}>
+                  Load Image from Vault
+               </Button>
+               {/* Optional small hint showing whether image is loaded */}
+               <Text name="img-hint" fill={color.text.default} opacity={imgSrc ? 0.8 : 0.5} fontSize={12}>
+                  {imgSrc ? "Image loaded" : "No image loaded"}
+               </Text>
             </Section>
+
             <Section>
                <Label isCollapsable={true} colorPalette={color}>
                   Advanced
                </Label>
             </Section>
+
             {/* Editor Main Event */}
             <Button onEvent={addMessageToChat} colorPalette={color}>
                Add To Chat
