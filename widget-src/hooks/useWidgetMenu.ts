@@ -25,9 +25,14 @@ interface useWidgetMenuConfig { config: {
   chatId: number; displayMode: number; viewport: number; isEditMode: boolean; theme: ThemeModes
   avatarHash?: string | null; wallpaperHash?: string | null; avatarSrc?: string | null; wallpaperSrc?: string | null
 }}
-const defaultConfig: useWidgetMenuConfig["config"] = { chatId:0, displayMode:0, viewport:0, isEditMode:true, theme: THEME_MODES[0], avatarHash:null, wallpaperHash:null, avatarSrc:null, wallpaperSrc:null }
+const defaultConfig: useWidgetMenuConfig["config"] = {
+  chatId:0, displayMode:0, viewport:0, isEditMode:true, theme: THEME_MODES[0],
+  avatarHash:null, wallpaperHash:null, avatarSrc:null, wallpaperSrc:null
+}
 
-export default function useWidgetMenu({ config = defaultConfig }: Partial<useWidgetMenuConfig> = {}) {
+type UseWidgetMenuOpts = Partial<useWidgetMenuConfig> & { attachPropertyMenu?: boolean }
+
+export default function useWidgetMenu({ config = defaultConfig, attachPropertyMenu = true }: UseWidgetMenuOpts = {}) {
   const initialAvatarHash: string | null =
     config.avatarHash ?? (safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar) || null)
   const initialWallpaperHash: string | null =
@@ -38,22 +43,9 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
   const initialWallpaperSrc: string | null =
     config.wallpaperSrc ?? (readDataURLFromChunks(WALL.meta, WALL.prefix) || null)
 
-  const chatPresets = [{ option:"bot", label:"Bot Chat" }, { option:"friend", label:"Friend Chat" }, { option:"none", label:"Empty Chat" }] as const
   const [chatId, setChatId] = useSyncedState<number>("chatId", config.chatId)
-
-  const displayOptions = [
-    { option:"phone", label:"Framed Phone" }, { option:"viewport", label:"Viewport (scrollable)" },
-    { option:"messages", label:"Chat Messages" }, { option:"message", label:"Last Message Only" },
-  ] as const
   const [displayMode, setDisplayMode] = useSyncedState<number>("displayMode", config.displayMode)
-
-  const viewportDimensions = [
-    { option: "lg", label: `${DIMENSIONS[0].width}x${DIMENSIONS[0].height} (Default)` },
-    { option: "md", label: `${DIMENSIONS[1].width}x${DIMENSIONS[1].height} (Iphone 12/13 Pro)` },
-    { option: "sm", label: `${DIMENSIONS[2].width}x${DIMENSIONS[2].height} (Iphone SE)` },
-  ] as const
   const [viewport, setViewport] = useSyncedState<number>("viewport", config.viewport)
-
   const [theme, setTheme] = useSyncedState<ThemeModes>("theme", config.theme)
   const [isEditMode, setIsEditMode] = useSyncedState("isEditMode", config.isEditMode)
 
@@ -61,6 +53,15 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
   const [wallpaperHash, setWallpaperHash] = useSyncedState<string | null>("wallpaperHash", initialWallpaperHash)
   const [avatarSrc, setAvatarSrc] = useSyncedState<string | null>("avatarSrc", initialAvatarSrc)
   const [wallpaperSrc, setWallpaperSrc] = useSyncedState<string | null>("wallpaperSrc", initialWallpaperSrc)
+
+  // === Header actions toggle
+  const [showHeaderActions, setShowHeaderActions] = useSyncedState<boolean>("showHeaderActions", false)
+
+  // === New User Card state
+  const [showNewUserCard, setShowNewUserCard] = useSyncedState<boolean>("showNewUserCard", true)
+  const [profileName,   setProfileName]   = useSyncedState<string>("profileName",   "Random User")
+  const [profileCountry,setProfileCountry]= useSyncedState<string>("profileCountry","🇳🇬 Nigeria")
+  const [profileReg,    setProfileReg]    = useSyncedState<string>("profileReg",    "January 2024")
 
   const svgPaths = {
     edit:`<svg width='14' height='14' viewBox='0 0 72 72' fill='none' xmlns='http://www.w3.org/2000/svg'><path fill-rule='evenodd' clip-rule='evenodd' d='M61.48 1.15999L70.84 10.52C72.4 12.08 72.4 14.6 70.84 16.16L63.52 23.48L48.52 8.47999L55.84 1.15999C57.4 -0.40001 59.92 -0.40001 61.48 1.15999ZM0 72V57L44.24 12.76L59.24 27.76L15 72H0Z' fill='#BBBBBB'/></svg>`,
@@ -72,61 +73,75 @@ export default function useWidgetMenu({ config = defaultConfig }: Partial<useWid
 
   const optionalMenuItem = <T extends PropertyMenuItem>(x: T, c: boolean): [T] | [] => (c ? [x] : [])
 
-  usePropertyMenu(
-    [
-      { itemType: "dropdown", propertyName: "chat", tooltip: "Change Context (Recipient)", selectedOption: ["bot","friend","none"][chatId], options: [{option:"bot",label:"Bot Chat"},{option:"friend",label:"Friend Chat"},{option:"none",label:"Empty Chat"}] },
-      { itemType: "dropdown", propertyName: "display", tooltip: "Chat Display Mode", selectedOption: ["phone","viewport","messages","message"][displayMode], options: [
-        {option:"phone",label:"Framed Phone"},{option:"viewport",label:"Viewport (scrollable)"},{option:"messages",label:"Chat Messages"},{option:"message",label:"Last Message Only"}] },
-      ...optionalMenuItem({ itemType: "dropdown", propertyName: "viewport", tooltip: "Viewport Dimensions chat",
-        selectedOption: ["lg","md","sm"][viewport], options: [
-          { option:"lg", label:`${DIMENSIONS[0].width}x${DIMENSIONS[0].height} (Default)` },
-          { option:"md", label:`${DIMENSIONS[1].width}x${DIMENSIONS[1].height} (Iphone 12/13 Pro)` },
-          { option:"sm", label:`${DIMENSIONS[2].width}x${DIMENSIONS[2].height} (Iphone SE)` },
-        ] }, displayMode === 1),
-      { itemType: "separator" },
-      { itemType: "action", propertyName: "theme", tooltip: theme === "light" ? "Dark Theme" : "Light Theme", icon: svgPaths.mode },
-      { itemType: "action", propertyName: "edit", tooltip: isEditMode ? "Display Mode (Hide Builder)" : "Edit Mode (New Messages)", icon: isEditMode ? svgPaths.hide : svgPaths.edit },
-      { itemType: "separator" },
-      { itemType: "action", propertyName: "uploadAvatar", tooltip: "UPLOAD AVATAR (pull from helper plugin)", icon: svgPaths.upload },
-      { itemType: "action", propertyName: "uploadWallpaper", tooltip: "UPLOAD WALLPAPER (pull from helper plugin)", icon: svgPaths.upload },
-      { itemType: "action", propertyName: "debugReadHashes", tooltip: "Debug: read hashes", icon: svgPaths.show },
-    ],
-    ({ propertyName, propertyValue }) => {
-      try {
-        switch (propertyName) {
-          case "chat": setChatId(["bot","friend","none"].findIndex((o) => o === propertyValue)); break
-          case "display": setDisplayMode(["phone","viewport","messages","message"].findIndex((o) => o === propertyValue)); break
-          case "viewport": setViewport(["lg","md","sm"].findIndex((o) => o === propertyValue)); break
-          case "theme": setTheme((prev) => THEME_MODES[(THEME_MODES.findIndex((m) => m === prev) + 1) % THEME_MODES.length]); break
-          case "edit": setIsEditMode(!isEditMode); break
+  if (attachPropertyMenu) {
+    usePropertyMenu(
+      [
+        { itemType: "dropdown", propertyName: "chat", tooltip: "Change Context (Recipient)", selectedOption: ["bot","friend","none"][chatId], options: [{option:"bot",label:"Bot Chat"},{option:"friend",label:"Friend Chat"},{option:"none",label:"Empty Chat"}] },
+        { itemType: "dropdown", propertyName: "display", tooltip: "Chat Display Mode", selectedOption: ["phone","viewport","messages","message"][displayMode], options: [
+          {option:"phone",label:"Framed Phone"},{option:"viewport",label:"Viewport (scrollable)"},{option:"messages",label:"Chat Messages"},{option:"message",label:"Last Message Only"}] },
+        ...optionalMenuItem({ itemType: "dropdown", propertyName: "viewport", tooltip: "Viewport Dimensions chat",
+          selectedOption: ["lg","md","sm"][viewport], options: [
+            { option:"lg", label:`${DIMENSIONS[0].width}x${DIMENSIONS[0].height} (Default)` },
+            { option:"md", label:`${DIMENSIONS[1].width}x${DIMENSIONS[1].height} (Iphone 12/13 Pro)` },
+            { option:"sm", label:`${DIMENSIONS[2].width}x${DIMENSIONS[2].height} (Iphone SE)` },
+          ] }, displayMode === 1),
+        { itemType: "separator" },
 
-          case "uploadAvatar": {
-            const hash = safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
-            const data = readDataURLFromChunks(AVATAR.meta, AVATAR.prefix) || safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
-            if (hash || data) { if (hash) setAvatarHash(hash); if (data) setAvatarSrc(data); figma.notify?.(`Avatar updated from vault${hash ? " (hash)" : ""}${data ? " (dataURL)" : ""}`) }
-            else figma.notify?.('No avatar in vault. Run "Telegram Widget — Asset Vault" → Upload Avatar')
-            break
-          }
-          case "uploadWallpaper": {
-            const hash = safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
-            const data = readDataURLFromChunks(WALL.meta, WALL.prefix)
-            if (hash || data) { if (hash) setWallpaperHash(hash); if (data) setWallpaperSrc(data); figma.notify?.(`Wallpaper updated from vault${hash ? " (hash)" : ""}${data ? " (dataURL)" : ""}`) }
-            else figma.notify?.('No wallpaper in vault. Run "Telegram Widget — Asset Vault" → Upload Wallpaper')
-            break
-          }
-          case "debugReadHashes": {
-            const a  = safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
-            const w  = safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
-            const aLegacySrc = safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
-            const aMeta = safeGetShared(VAULT_NS, AVATAR.meta) || safeGetShared(LEGACY_VAULT_NS, AVATAR.meta)
-            const wMeta = safeGetShared(VAULT_NS, WALL.meta)   || safeGetShared(LEGACY_VAULT_NS, WALL.meta)
-            figma.notify?.(`Avatar: ${a || "(empty)"}; chunks: ${aMeta || 0}${aLegacySrc ? " + legacy[dataURL]" : ""} | Wallpaper: ${w || "(empty)"}; chunks: ${wMeta || 0}`)
-            break
-          }
-        }
-      } catch (err) { figma.notify?.("Menu handler error: " + (err as Error).message) }
-    },
-  )
+        { itemType: "toggle", propertyName: "toggle-header-actions", tooltip: "Show “Block / Add to Contacts”", isToggled: showHeaderActions },
+        { itemType: "toggle", propertyName: "toggle-new-user-card", tooltip: "Show New User Card", isToggled: showNewUserCard },
 
-  return { chatId, displayMode, viewport, theme, isEditMode, avatarHash, wallpaperHash, avatarSrc, wallpaperSrc }
+        { itemType: "separator" },
+        { itemType: "action", propertyName: "theme", tooltip: theme === "light" ? "Dark Theme" : "Light Theme", icon: svgPaths.mode },
+        { itemType: "action", propertyName: "edit", tooltip: isEditMode ? "Display Mode (Hide Builder)" : "Edit Mode (New Messages)", icon: isEditMode ? svgPaths.hide : svgPaths.edit },
+        { itemType: "separator" },
+        { itemType: "action", propertyName: "uploadAvatar", tooltip: "UPLOAD AVATAR (pull from helper plugin)", icon: svgPaths.upload },
+        { itemType: "action", propertyName: "uploadWallpaper", tooltip: "UPLOAD WALLPAPER (pull from helper plugin)", icon: svgPaths.upload },
+        { itemType: "action", propertyName: "debugReadHashes", tooltip: "Debug: read hashes", icon: svgPaths.show },
+      ],
+      ({ propertyName, propertyValue }) => {
+        try {
+          switch (propertyName) {
+            case "chat": setChatId(["bot","friend","none"].findIndex((o) => o === propertyValue)); break
+            case "display": setDisplayMode(["phone","viewport","messages","message"].findIndex((o) => o === propertyValue)); break
+            case "viewport": setViewport(["lg","md","sm"].findIndex((o) => o === propertyValue)); break
+            case "theme": setTheme((prev) => THEME_MODES[(THEME_MODES.findIndex((m) => m === prev) + 1) % THEME_MODES.length]); break
+            case "edit": setIsEditMode(!isEditMode); break
+            case "toggle-header-actions": setShowHeaderActions(!showHeaderActions); break
+            case "toggle-new-user-card": setShowNewUserCard(!showNewUserCard); break
+            case "uploadAvatar": {
+              const hash = safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
+              const data = readDataURLFromChunks(AVATAR.meta, AVATAR.prefix) || safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
+              if (hash || data) { if (hash) setAvatarHash(hash); if (data) setAvatarSrc(data); figma.notify?.(`Avatar updated from vault${hash ? " (hash)" : ""}${data ? " (dataURL)" : ""}`) }
+              else figma.notify?.('No avatar in vault. Run "Telegram Widget — Asset Vault" → Upload Avatar')
+              break
+            }
+            case "uploadWallpaper": {
+              const hash = safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
+              const data = readDataURLFromChunks(WALL.meta, WALL.prefix)
+              if (hash || data) { if (hash) setWallpaperHash(hash); if (data) setWallpaperSrc(data); figma.notify?.(`Wallpaper updated from vault${hash ? " (hash)" : ""}${data ? " (dataURL)" : ""}`) }
+              else figma.notify?.('No wallpaper in vault. Run "Telegram Widget — Asset Vault" → Upload Wallpaper')
+              break
+            }
+            case "debugReadHashes": {
+              const a  = safeGetShared(VAULT_NS, VAULT_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.avatar)
+              const w  = safeGetShared(VAULT_NS, VAULT_KEYS.wallpaper) || safeGetShared(LEGACY_VAULT_NS, VAULT_KEYS.wallpaper)
+              const aLegacySrc = safeGetShared(VAULT_NS, DATA_KEYS.avatar) || safeGetShared(LEGACY_VAULT_NS, DATA_KEYS.avatar)
+              const aMeta = safeGetShared(VAULT_NS, AVATAR.meta) || safeGetShared(LEGACY_VAULT_NS, AVATAR.meta)
+              const wMeta = safeGetShared(VAULT_NS, WALL.meta)   || safeGetShared(LEGACY_VAULT_NS, WALL.meta)
+              figma.notify?.(`Avatar: ${a || "(empty)"}; chunks: ${aMeta || 0}${aLegacySrc ? " + legacy[dataURL]" : ""} | Wallpaper: ${w || "(empty)"}; chunks: ${wMeta || 0}`)
+              break
+            }
+          }
+        } catch (err) { figma.notify?.("Menu handler error: " + (err as Error).message) }
+      },
+    )
+  }
+
+  return {
+    chatId, displayMode, viewport, theme, isEditMode,
+    avatarHash, wallpaperHash, avatarSrc, wallpaperSrc,
+    showHeaderActions, setShowHeaderActions,
+    showNewUserCard, setShowNewUserCard,
+    profileName, setProfileName, profileCountry, setProfileCountry, profileReg, setProfileReg,
+  }
 }

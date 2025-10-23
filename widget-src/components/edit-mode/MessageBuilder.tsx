@@ -3,7 +3,11 @@ const { AutoLayout, Text } = figma.widget
 import { remapTokens } from "@/utils"
 import { type SetterProp } from "@/hooks"
 import { EDITOR_STATE, EDITOR_INPUTS } from "@/constants"
-import { Section, Label, ButtonsRow, Button, ButtomSmall, ChatButtonEditable, Selector, TextInput, Icon, Slider } from "@/components/edit-mode/atoms"
+import {
+  Section, Label, ButtonsRow, Button, ButtomSmall, ChatButtonEditable,
+  Selector, TextInput, Icon, Slider
+} from "@/components/edit-mode/atoms"
+import useWidgetMenu from "@/hooks/useWidgetMenu"
 
 interface MessageBuilderProps extends Partial<AutoLayoutProps>, ReqCompProps {
   renderElement: boolean
@@ -12,6 +16,12 @@ interface MessageBuilderProps extends Partial<AutoLayoutProps>, ReqCompProps {
 
 export function MessageBuilder({ editorManager, renderElement, theme, ...props }: MessageBuilderProps) {
   const [{ dir, type, text, name, extension, size, buttons, hidePreview, isImg, imgSrc }, setEditorState, setChatState] = editorManager
+
+  const {
+    showHeaderActions, setShowHeaderActions,
+    showNewUserCard, setShowNewUserCard,
+    profileName, setProfileName, profileCountry, setProfileCountry, profileReg, setProfileReg
+  } = useWidgetMenu({ attachPropertyMenu: false })
 
   const resetInputs = () => {
     Object.entries(EDITOR_STATE).map(([key, value]) => setEditorState(key as keyof EditorState, value as never))
@@ -34,7 +44,6 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
   }
   const addRowOfButtons = () => setEditorState("buttons", [...buttons, [{ id: 1, text: `Button ${buttons.length}-1`, hasRef: false }]])
 
-  /** Read message image from SPD tg_vault */
   const loadMessageImageFromVault = () => {
     const page = figma.currentPage
     try {
@@ -65,17 +74,8 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
   }
 
   const color = remapTokens({
-    surface: {
-      primaryHover: { dark: "#EAFFC8", light: "#567FE7" },
-      primary: { dark: "#D3FF8D", light: "#2851B7" },
-      primary30: { dark: "#D3FF8D4D", light: "#2851B74D" },
-      telegramButton: { dark: "#FFF3", light: "#24242487" },
-      action: { dark: "#313131", light: "#313131" },
-      actionHover: { dark: "#444444", light: "#444444" },
-      inputBg: { dark: "#0000004D", light: "#00000015" },
-      bg: { dark: "#252525", light: "#FFFFFF" },
-    },
-    text: { default: { dark: "#FFFFFF", light: "#000" }, inverted: { dark: "#000", light: "#FFF" }, black: { dark: "#000", light: "#000" }, white: { dark: "#FFF", light: "#FFF" } },
+    surface: { primaryHover:{dark:"#EAFFC8",light:"#567FE7"}, primary:{dark:"#D3FF8D",light:"#2851B7"}, primary30:{dark:"#D3FF8D4D",light:"#2851B74D"}, telegramButton:{dark:"#FFF3",light:"#24242487"}, action:{dark:"#313131",light:"#313131"}, actionHover:{dark:"#444444",light:"#444444"}, inputBg:{dark:"#0000004D",light:"#00000015"}, bg:{dark:"#252525",light:"#FFFFFF"} },
+    text: { default:{dark:"#FFFFFF",light:"#000"}, inverted:{dark:"#000",light:"#FFF"}, black:{dark:"#000",light:"#000"}, white:{dark:"#FFF",light:"#FFF"} },
   })[theme]
 
   function ButtonsSection() {
@@ -164,7 +164,34 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
           </Text>
         </Section>
 
-        <Section><Label isCollapsable={true} colorPalette={color}>Advanced</Label></Section>
+        {/* Advanced */}
+        <Section>
+          <Label isCollapsable={true} colorPalette={color}>Advanced</Label>
+
+          {/* Header actions toggle */}
+          <ButtonsRow>
+            <Text fill={color.text.default} fontSize={12} opacity={0.8} width={"fill-parent"}>
+              Show “Block / Add to Contacts”
+            </Text>
+            <Button onEvent={() => setShowHeaderActions(!showHeaderActions)} colorPalette={color}>
+              {showHeaderActions ? "On" : "Off"}
+            </Button>
+          </ButtonsRow>
+
+          {/* New User Card toggle + inputs */}
+          <ButtonsRow>
+            <Text fill={color.text.default} fontSize={12} opacity={0.8} width={"fill-parent"}>
+              Show New User Card
+            </Text>
+            <Button onEvent={() => setShowNewUserCard(!showNewUserCard)} colorPalette={color}>
+              {showNewUserCard ? "On" : "Off"}
+            </Button>
+          </ButtonsRow>
+
+          <TextInput onEvent={(e) => setProfileName(e.characters)} value={profileName} placeholder="User name" colorPalette={color} />
+          <TextInput onEvent={(e) => setProfileCountry(e.characters)} value={profileCountry} placeholder="Country (e.g., 🇳🇬 Nigeria)" colorPalette={color} />
+          <TextInput onEvent={(e) => setProfileReg(e.characters)} value={profileReg} placeholder="Registration (e.g., January 2024)" colorPalette={color} />
+        </Section>
 
         <Button onEvent={addMessageToChat} colorPalette={color}>Add To Chat</Button>
       </AutoLayout>

@@ -1,24 +1,19 @@
-// Dependencies
+// widget-src/components/display/Interface.tsx
 const { Frame } = figma.widget
-// Components
-import { Background, BottomBar, Header } from "@/components/ui"
+import { Background, BottomBar, Header, TopActions } from "@/components/ui"
 import { DIMENSIONS, USERNAMES, PROFILE_IMAGES } from "@/constants"
 import { useDynamicState } from "@/hooks"
+import useWidgetMenu from "@/hooks/useWidgetMenu"
 
 interface InterfaceProps extends ReqCompProps, OptionalRender, Partial<FrameProps> {
   viewport: number
   chatId: number
-  /** imageHash для фона из вспомогательного плагина */
   wallpaperHash?: string | null
-  /** dataURL (фолбэк) для фона из вальта */
   wallpaperSrc?: string | null
-  /** imageHash для аватарки из вспомогательного плагина */
   avatarHash?: string | null
-  /** dataURL (фолбэк) для аватарки из вальта */
   avatarSrc?: string | null
 }
 
-/** Telegram Interface - Header, Chat Input + ios */
 export function Interface({
   children,
   chatId,
@@ -34,7 +29,13 @@ export function Interface({
   const [recipient, setRecipient] = useDynamicState({
     username: USERNAMES[chatId],
     image: PROFILE_IMAGES[chatId],
-  }) // Username / Image
+  })
+
+  const { showHeaderActions } = useWidgetMenu({ attachPropertyMenu: false })
+
+  const TOP_BASE = 89
+  const ACTIONS_H = 41
+  const FEED_TOP = TOP_BASE + (showHeaderActions ? ACTIONS_H : 0)
 
   return !renderElements ? (
     children
@@ -48,17 +49,19 @@ export function Interface({
       height={DIMENSIONS[viewport].height}
       {...props}
     >
+      {/* Wallpaper */}
       <Background
         theme={theme}
         name="chat-bg/latest"
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
-        y={{ type: "top-bottom", topOffset: 89, bottomOffset: 80 }}
+        y={{ type: "top-bottom", topOffset: TOP_BASE, bottomOffset: 80 }}
         width={390}
         height={675}
         wallpaperHash={wallpaperHash ?? null}
         wallpaperSrc={wallpaperSrc ?? null}
       />
 
+      {/* Input */}
       <BottomBar
         theme={theme}
         name="ChatInput"
@@ -67,17 +70,29 @@ export function Interface({
         width={390}
       />
 
+      {/* Scroll feed (children draw themselves) */}
       <Frame
         name="Viewport Overflow Track"
         overflow="scroll"
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
-        y={{ type: "top-bottom", topOffset: 89, bottomOffset: 80 }}
+        y={{ type: "top-bottom", topOffset: FEED_TOP, bottomOffset: 80 }}
         width={390}
         height={675}
       >
         {children}
       </Frame>
 
+      {/* Actions bar */}
+      {showHeaderActions && (
+        <TopActions
+          name="TopActions"
+          x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
+          y={{ type: "top", offset: TOP_BASE }}
+          width={390}
+        />
+      )}
+
+      {/* Header */}
       <Header
         theme={theme}
         name="Header"
