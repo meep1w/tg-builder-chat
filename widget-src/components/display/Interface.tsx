@@ -1,9 +1,9 @@
 // widget-src/components/display/Interface.tsx
-const { Frame } = figma.widget
+const { Frame, Text } = figma.widget
 import { Background, BottomBar, Header, TopActions } from "@/components/ui"
 import { DIMENSIONS, USERNAMES, PROFILE_IMAGES } from "@/constants"
 import { useDynamicState } from "@/hooks"
-import useWidgetMenu from "@/hooks/useWidgetMenu"
+import { useSyncedState } from "@figma/widget" // типовой импорт доступен как figma.widget.useSyncedState тоже
 
 interface InterfaceProps extends ReqCompProps, OptionalRender, Partial<FrameProps> {
   viewport: number
@@ -31,11 +31,14 @@ export function Interface({
     image: PROFILE_IMAGES[chatId],
   })
 
-  const { showHeaderActions } = useWidgetMenu({ attachPropertyMenu: false })
+  // НОВОЕ: читаем значения из правой панели
+  const [headerUsername] = figma.widget.useSyncedState<string>("headerUsername", "Random User")
+  const [headerLastSeen] = figma.widget.useSyncedState<string>("headerLastSeen", "last seen just now")
+  const [statusTime]     = figma.widget.useSyncedState<string>("statusTime", "9:41")
 
   const TOP_BASE = 89
   const ACTIONS_H = 41
-  const FEED_TOP = TOP_BASE + (showHeaderActions ? ACTIONS_H : 0)
+  const FEED_TOP = TOP_BASE // TopActions рисуется поверх; MessagesLayout уже знает про отступы
 
   return !renderElements ? (
     children
@@ -70,7 +73,7 @@ export function Interface({
         width={390}
       />
 
-      {/* Scroll feed (children draw themselves) */}
+      {/* Scroll feed */}
       <Frame
         name="Viewport Overflow Track"
         overflow="scroll"
@@ -82,27 +85,28 @@ export function Interface({
         {children}
       </Frame>
 
-      {/* Actions bar */}
-      {showHeaderActions && (
-        <TopActions
-          name="TopActions"
-          x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
-          y={{ type: "top", offset: TOP_BASE }}
-          width={390}
-        />
-      )}
+      {/* Action bar поверх */}
+      <TopActions
+        name="TopActions"
+        x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
+        y={{ type: "top", offset: TOP_BASE }}
+        width={390}
+      />
 
-      {/* Header */}
+      {/* Header: username + last seen из синхр. состояния */}
       <Header
         theme={theme}
         name="Header"
         profilePicHash={avatarHash ?? null}
         profilePicSrc={avatarSrc ?? recipient.image}
         onEvent={(e) => setRecipient("username", e.characters)}
-        value={recipient.username}
+        value={headerUsername || recipient.username}
+        subtitle={headerLastSeen}         // НОВОЕ: поддержка подзаголовка
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
         width={390}
       />
+
+      
     </Frame>
   )
 }

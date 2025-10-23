@@ -34,10 +34,10 @@ export function TopActions({ name = "TopActions", width = 390, ...props }: TopAc
 
       {/* только тут двигаем — gap=52 */}
       <AutoLayout name="Links" spacing={52} verticalAlignItems="center">
-        <Text name="Block User" fontSize={15} fontWeight={400} fill={RED}>
+        <Text name="Block User" fontSize={15} fontWeight={500} fill={RED}>
           Block User
         </Text>
-        <Text name="Add to Contacts" fontSize={15} fontWeight={400} fill={BLUE}>
+        <Text name="Add to Contacts" fontSize={15} fontWeight={500} fill={BLUE}>
           Add to Contacts
         </Text>
       </AutoLayout>

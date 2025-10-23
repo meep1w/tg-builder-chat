@@ -1,29 +1,31 @@
 // widget-src/components/display/MessagesLayout.tsx
 
 // Dependencies
-const { AutoLayout } = figma.widget
+const { AutoLayout, useSyncedState } = figma.widget
 // Components
 import { DirectionContainer, WithButtons } from "@/components/display/atoms"
 import { Message } from "@/components/ui"
+import { DaySeparator } from "@/components/ui/DaySeparator"
 import { NewUserCard } from "@/components/ui/NewUserCard"
-import useWidgetMenu from "@/hooks/useWidgetMenu"
+
+type DayDivider = { label: string } & ({ kind: "day" } | { type: "day" })
 
 interface MessagesLayoutProps extends Partial<AutoLayoutProps>, ReqCompProps, OptionalRender {
-  messages?: (Message[] | undefined)[]
+  // допускаем группы сообщений и day-divider'ы
+  messages?: (Message[] | DayDivider | undefined)[]
 }
 
-/** Arranges messages (In/Out). NewUserCard — первый элемент ленты. */
+/** Arranges messages (In/Out). Supports inline day dividers and the NewUserCard at the top. */
 export function MessagesLayout({ messages, renderElements, children, theme, ...props }: MessagesLayoutProps) {
-  // Last-message mode
-  const lastMessageSide = messages?.[messages.length - 1]
-  const lastMessage = lastMessageSide?.[lastMessageSide.length - 1]
+  // режим "Last Message Only"
+  const lastSide = messages?.filter(Boolean).slice(-1)[0]
+  const lastMessage = Array.isArray(lastSide) ? lastSide[lastSide.length - 1] : undefined
 
-  // Controls
-  const { showNewUserCard, profileName, profileCountry, profileReg } = useWidgetMenu({ attachPropertyMenu: false })
-
-  // Gaps как в ТГ
-  const GAP_BELOW_ACTIONS = 34
-  const GAP_BELOW_CARD = 16
+  // читаем ТЕ ЖЕ ключи, что пишет MessageBuilder
+  const [showNewUserCard] = useSyncedState<boolean>("showNewUserCard", true)
+  const [profileName] = useSyncedState<string>("profileName", "Random User")
+  const [profileCountry] = useSyncedState<string>("profileCountry", "🇳🇬 Nigeria")
+  const [profileReg] = useSyncedState<string>("profileReg", "January 2024")
 
   if (!renderElements) {
     return lastMessage ? (
@@ -37,6 +39,10 @@ export function MessagesLayout({ messages, renderElements, children, theme, ...p
       <>{children}</>
     )
   }
+
+  // отступы вокруг карточки (как обсуждали)
+  const GAP_BELOW_ACTIONS = 34
+  const GAP_BELOW_CARD = 16
 
   return (
     <AutoLayout
@@ -52,26 +58,42 @@ export function MessagesLayout({ messages, renderElements, children, theme, ...p
       horizontalAlignItems="center"
       {...props}
     >
-      {/* Карточка нового пользователя — по центру */}
+      {/* Карточка нового пользователя — первый элемент ленты, по центру */}
       {showNewUserCard && (
         <AutoLayout
           name="NewUserIntro"
           direction="vertical"
           width="fill-parent"
-          horizontalAlignItems="center"         // ← центрируем
+          horizontalAlignItems="center"
           padding={{ top: GAP_BELOW_ACTIONS, bottom: GAP_BELOW_CARD }}
         >
-          <NewUserCard
-            username={profileName}
-            country={profileCountry}
-            registration={profileReg}
-          />
+          <NewUserCard username={profileName} country={profileCountry} registration={profileReg} />
         </AutoLayout>
       )}
 
-      {/* Сообщения */}
-      {messages?.map(
-        (dirMsg, key) =>
+      {/* Основной проход по элементам ленты */}
+      {messages?.map((entry, key) => {
+        // 1) day-divider (поддерживаем kind/type)
+        if (entry && typeof entry === "object" && !Array.isArray(entry) && (entry as any).label) {
+          const isDay = (entry as any).kind === "day" || (entry as any).type === "day"
+          if (isDay) {
+            const d = entry as DayDivider
+            return (
+              <AutoLayout
+                key={`day-${key}`}
+                width="fill-parent"
+                horizontalAlignItems="center"
+                verticalAlignItems="center"
+              >
+                <DaySeparator label={d.label} />
+              </AutoLayout>
+            )
+          }
+        }
+
+        // 2) группа сообщений (как раньше)
+        const dirMsg = entry as Message[] | undefined
+        return (
           dirMsg && (
             <DirectionContainer key={key} dir={dirMsg[0].dir}>
               {dirMsg.map((msg, i) => (
@@ -80,8 +102,10 @@ export function MessagesLayout({ messages, renderElements, children, theme, ...p
                 </WithButtons>
               ))}
             </DirectionContainer>
-          ),
-      )}
+          )
+        )
+      })}
+
       {children}
     </AutoLayout>
   )
