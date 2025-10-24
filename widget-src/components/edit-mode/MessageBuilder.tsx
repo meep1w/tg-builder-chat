@@ -40,11 +40,17 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
   // НОВОЕ: поля хедера/статуса
   const [headerUsername, setHeaderUsername] = useSyncedState<string>("headerUsername", "Random User")
   const [headerLastSeen, setHeaderLastSeen] = useSyncedState<string>("headerLastSeen", "last seen just now")
-  const [statusTime, setStatusTime]         = useSyncedState<string>("statusTime", "9:41")
+  const [statusTime, setStatusTime] = useSyncedState<string>("statusTime", "9:41")
+
+  // НОВОЕ: процент батареи для статус-бара (читается IosHeaderStatus)
+  const [batteryPercent, setBatteryPercent] = useSyncedState<number>("batteryPercent", 100)
 
   // Day separator
   const [dayState, setDayState] = useDynamicState<{ value: string }>({ value: "Today" })
   // ==========================================================================
+
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
+  const setBatterySafe = (val: number) => setBatteryPercent(clamp(Math.round(val || 0), 0, 100))
 
   const resetInputs = () => {
     Object.entries(EDITOR_STATE).map(([key, value]) =>
@@ -273,6 +279,29 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
           <TextInput onEvent={(e) => setHeaderUsername(e.characters)} value={headerUsername} placeholder="Header Username" colorPalette={color} />
           <TextInput onEvent={(e) => setHeaderLastSeen(e.characters)} value={headerLastSeen} placeholder="last seen recently" colorPalette={color} />
           <TextInput onEvent={(e) => setStatusTime(e.characters)} value={statusTime} placeholder="9:41" colorPalette={color} />
+        </Section>
+
+        {/* НОВОЕ: Battery */}
+        <Section>
+          <Label colorPalette={color}>Battery</Label>
+          <AutoLayout width={"fill-parent"} spacing={8} verticalAlignItems="center">
+            <ButtomSmall onEvent={() => setBatterySafe(batteryPercent - 10)} tooltip="-10%" colorPalette={color}>-10</ButtomSmall>
+            <ButtomSmall onEvent={() => setBatterySafe(batteryPercent - 1)} tooltip="-1%" colorPalette={color}>-1</ButtomSmall>
+            <TextInput
+              onEvent={(e) => {
+                const num = parseInt(e.characters.replace(/[^\d]/g, ""), 10)
+                setBatterySafe(Number.isFinite(num) ? num : 0)
+              }}
+              value={String(clamp(batteryPercent, 0, 100))}
+              placeholder="0–100"
+              colorPalette={color}
+            />
+            <ButtomSmall onEvent={() => setBatterySafe(batteryPercent + 1)} tooltip="+1%" colorPalette={color}>+1</ButtomSmall>
+            <ButtomSmall onEvent={() => setBatterySafe(batteryPercent + 10)} tooltip="+10%" colorPalette={color}>+10</ButtomSmall>
+          </AutoLayout>
+          <Text fill={color.text.default} opacity={0.6} fontSize={12}>
+            1–20% будет красной заливкой и белыми цифрами; 0% — пустая с красными цифрами.
+          </Text>
         </Section>
 
         {/* Day separator */}

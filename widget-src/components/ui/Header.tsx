@@ -11,7 +11,7 @@ interface HeaderProps extends ReqCompProps, Partial<AutoLayoutProps>, ContainsEv
 export function Header({ value, profilePicSrc, profilePicHash = null, onEvent, theme, ...props }: HeaderProps) {
   const reqChildProps = { theme }
 
-  // правим только имя и last seen
+  // редактируемые поля
   const [headerUsername, setHeaderUsername] = useSyncedState<string>("headerUsername", value ?? "Random User")
   const [headerLastSeen] = useSyncedState<string>("headerLastSeen", "last seen just now")
 
@@ -20,6 +20,15 @@ export function Header({ value, profilePicSrc, profilePicHash = null, onEvent, t
     text: { primary: { dark: "#FFF", light: "#000" }, secondary: { dark: "#8D8D8F", light: "#8D8D8F" } },
   })[theme]
 
+  // Матовое стекло (как согласовали): #262628 @ 80% + blur
+  const GLASS_FILL = { r: 0x26 / 255, g: 0x26 / 255, b: 0x28 / 255, a: 0.85 }
+  const BLUR_EFFECT: Effect = { type: "background-blur", blur: 16 }
+
+  // «Stroke только снизу»: эмулируем отдельным 0.2px прямоугольником внутри хедера
+  const BOTTOM_STROKE = { r: 0xEA / 255, g: 0xEA / 255, b: 0xEA / 255, a: 0.14 } // #EAEAEA @ 14%
+  const HEADER_H = 89
+  const LINE_H = 0.2
+
   const svgPaths = {
     arrowLeft: `<svg width='12' height='21' viewBox='0 0 12 21' fill='none' xmlns='http://www.w3.org/2000/svg'>
       <path d='M3.60206 10.5L11.4062 2.55085C11.9866 1.9597 11.9778 1.00999 11.3867 0.429623C10.7955 -0.150747 9.84583 -0.142006 9.26546 0.449147L0.429623 9.44915C-0.143208 10.0326 -0.143208 10.9674 0.429623 11.5509L9.26546 20.5509C9.84583 21.142 10.7955 21.1507 11.3867 20.5704C11.9778 19.99 11.9866 19.0403 11.4062 18.4491L3.60206 10.5Z' fill='${color.text.primary}'/>
@@ -27,32 +36,32 @@ export function Header({ value, profilePicSrc, profilePicHash = null, onEvent, t
   }
 
   return (
-    <AutoLayout
-      name="Header"
-      effect={[
-        { type: "drop-shadow", color: "#0000001A", offset: { x: -1, y: 7 }, blur: 16 },
-        { type: "drop-shadow", color: "#00000017", offset: { x: -2, y: 29 }, blur: 29 },
-        { type: "drop-shadow", color: "#0000000D", offset: { x: -5, y: 66 }, blur: 40 },
-        { type: "drop-shadow", color: "#00000003", offset: { x: -9, y: 118 }, blur: 47 },
-        { type: "drop-shadow", color: "#0000", offset: { x: -14, y: 184 }, blur: 52 },
-      ]}
-      direction="vertical"
-      width={375}
-      {...props}
-    >
+    <AutoLayout name="Header" direction="vertical" width={375} {...props}>
+      {/* Стеклянная вуаль без внешнего бордера */}
       <Rectangle
-        name="Surface"
-        effect={{ type: "drop-shadow", color: "#3D3D3F", offset: { x: 0, y: 0.33 }, blur: 0 }}
+        name="Surface/Glass"
+        positioning="absolute"
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
         y={{ type: "top-bottom", topOffset: 0, bottomOffset: 0 }}
-        positioning="absolute"
-        fill={color.surface.container}
-        strokeWidth={0}
         width={375}
-        height={89}
+        height={HEADER_H}
+        fill={GLASS_FILL}
+        strokeWidth={0}
+        effect={BLUR_EFFECT}
+      />
+      {/* Тончайший нижний Stroke (эмуляция bottom-only) */}
+      <Rectangle
+        name="Surface/BottomStroke"
+        positioning="absolute"
+        x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
+        y={{ type: "bottom", offset: 0 }}     // прижат к низу хедера
+        width={375}
+        height={LINE_H}
+        fill={BOTTOM_STROKE}
+        strokeWidth={0}
       />
 
-      {/* Время теперь рисуется только внутри IosHeaderStatus */}
+      {/* статус-бар (время/сигнал/вайфай/батарея) */}
       <IosHeaderStatus {...reqChildProps} width={"fill-parent"} name="_ios/HeaderStatus" />
 
       <AutoLayout

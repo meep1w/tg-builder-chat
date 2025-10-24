@@ -37,8 +37,9 @@ export function Interface({
   const [statusTime]     = figma.widget.useSyncedState<string>("statusTime", "9:41")
 
   const TOP_BASE = 89
-  const ACTIONS_H = 41
-  const FEED_TOP = TOP_BASE // TopActions рисуется поверх; MessagesLayout уже знает про отступы
+  const BOTTOM_BAR_H = 80
+  const FEED_TOP = TOP_BASE
+  const WALLPAPER_H = 700  // фикс высота обоев
 
   return !renderElements ? (
     children
@@ -47,24 +48,24 @@ export function Interface({
       name="Interface"
       x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
       y={{ type: "top-bottom", topOffset: 0, bottomOffset: 0 }}
-      fill="#151515"
+      fill="#00000"
       width={DIMENSIONS[viewport].width}
       height={DIMENSIONS[viewport].height}
       {...props}
     >
-      {/* Wallpaper */}
+      {/* Wallpaper: фиксированная высота 700, прибито к верху под хедером */}
       <Background
         theme={theme}
         name="chat-bg/latest"
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
-        y={{ type: "top-bottom", topOffset: TOP_BASE, bottomOffset: 80 }}
+        y={{ type: "top", offset: TOP_BASE }}
         width={390}
-        height={675}
+        height={WALLPAPER_H}
         wallpaperHash={wallpaperHash ?? null}
         wallpaperSrc={wallpaperSrc ?? null}
       />
 
-      {/* Input */}
+      {/* Внизу: стеклянный бар поверх обоев */}
       <BottomBar
         theme={theme}
         name="ChatInput"
@@ -73,12 +74,12 @@ export function Interface({
         width={390}
       />
 
-      {/* Scroll feed */}
+      {/* Лента: оставляем снизу зазор под бар = 80 */}
       <Frame
         name="Viewport Overflow Track"
         overflow="scroll"
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
-        y={{ type: "top-bottom", topOffset: FEED_TOP, bottomOffset: 80 }}
+        y={{ type: "top-bottom", topOffset: FEED_TOP, bottomOffset: BOTTOM_BAR_H }}
         width={390}
         height={675}
       >
@@ -101,12 +102,10 @@ export function Interface({
         profilePicSrc={avatarSrc ?? recipient.image}
         onEvent={(e) => setRecipient("username", e.characters)}
         value={headerUsername || recipient.username}
-        subtitle={headerLastSeen}         // НОВОЕ: поддержка подзаголовка
+        subtitle={headerLastSeen}
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
         width={390}
       />
-
-      
     </Frame>
   )
 }

@@ -1,11 +1,18 @@
 // widget-src/components/ui/TopActions.tsx
-const { AutoLayout, Text, Rectangle, SVG } = figma.widget
+const { AutoLayout, Text, Rectangle, SVG, useSyncedState } = figma.widget
 
 interface TopActionsProps extends ReqCompProps, Partial<AutoLayoutProps> {}
 
 export function TopActions({ name = "TopActions", width = 390, ...props }: TopActionsProps) {
-  const BG = "#1C1C1D"
-  const BORDER = { r: 0xA2/255, g: 0xA2/255, b: 0xA2/255, a: 0.2 }
+  // глобальный флаг из правой панели
+  const [showHeaderActions] = useSyncedState<boolean>("showHeaderActions", true)
+  if (!showHeaderActions) return null
+
+  // стеклянные параметры — как у Header
+  const GLASS_FILL = { r: 0x26/255, g: 0x26/255, b: 0x28/255, a: 0.85 } // #262628 @ 80%
+  const BLUR_EFFECT: Effect = { type: "background-blur", blur: 16 }
+  const HAIRLINE = { r: 1, g: 1, b: 1, a: 0.06 } // нижняя «волосинка» (только снизу)
+
   const RED = "#FF000B"
   const BLUE = "#3CA6FC"
 
@@ -18,21 +25,33 @@ export function TopActions({ name = "TopActions", width = 390, ...props }: TopAc
       padding={{ left: 87, right: 12.48 }}
       spacing={0}
       verticalAlignItems="center"
-      fill={BG}
       {...props}
     >
-      {/* top stroke */}
+      {/* стеклянная подложка */}
       <Rectangle
-        name="TopBorder"
+        name="Glass"
         positioning="absolute"
         x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
-        y={{ type: "top", offset: 0 }}
+        y={{ type: "top-bottom", topOffset: 0, bottomOffset: 0 }}
         width="fill-parent"
-        height={0.2}
-        fill={BORDER}
+        height="fill-parent"
+        fill={GLASS_FILL}
+        strokeWidth={0}
+        effect={BLUR_EFFECT}
+      />
+      {/* нижняя линия-разделитель */}
+      <Rectangle
+        name="HairlineBottom"
+        positioning="absolute"
+        x={{ type: "left-right", leftOffset: 0, rightOffset: 0 }}
+        y={{ type: "bottom", offset: 0 }}
+        width="fill-parent"
+        height={0.5}
+        fill={HAIRLINE}
+        strokeWidth={0}
       />
 
-      {/* только тут двигаем — gap=52 */}
+      {/* ссылки */}
       <AutoLayout name="Links" spacing={52} verticalAlignItems="center">
         <Text name="Block User" fontSize={15} fontWeight={500} fill={RED}>
           Block User
@@ -42,9 +61,8 @@ export function TopActions({ name = "TopActions", width = 390, ...props }: TopAc
         </Text>
       </AutoLayout>
 
-      {/* крестик остаётся прижат к правому паддингу */}
+      {/* крестик справа */}
       <AutoLayout name="spacer" width="fill-parent" />
-
       <SVG
         name="CloseIcon"
         src={`<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
