@@ -29,9 +29,10 @@ export function NewUserCard({
   name = "NewUserCard",
   ...props
 }: NewUserCardProps) {
-  const CARD_BG = "#212121"
-  const WHITE = "#FFFFFF"
-  const MUTED = "#B1B8C2"
+  // Матовость: фон #212121 @54% + сильный background-blur
+  const CARD_BG = { r: 0x21 / 255, g: 0x21 / 255, b: 0x21 / 255, a: 0.54 }
+  const WHITE   = "#FFFFFF"
+  const MUTED   = "#B1B8C2"
 
   const { flag, label } = splitFlagAndLabel(country)
   const FLAG_SIZE = 16 // флаг «чуть больше» основного текста (12)
@@ -46,6 +47,8 @@ export function NewUserCard({
       cornerRadius={16}
       padding={{ left: 16, right: 16, top: 18, bottom: 16 }}
       spacing={8}
+      // Figma Widgets: только единый background-blur → ставим близко к твоему скрину
+      effect={{ type: "background-blur", blur: 60 }}
       {...props}
     >
       {/* Заголовок и статус — по центру */}
@@ -101,12 +104,7 @@ export function NewUserCard({
         </AutoLayout>
 
         {/* Registration */}
-        <AutoLayout
-          name="row-reg"
-          direction="horizontal"
-          width="fill-parent"
-          spacing={8}
-        >
+        <AutoLayout name="row-reg" direction="horizontal" width="fill-parent" spacing={8}>
           <AutoLayout width={90} horizontalAlignItems="end">
             <Text fill={MUTED} fontSize={12} fontWeight={400}>
               Registration

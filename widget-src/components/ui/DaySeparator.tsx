@@ -6,19 +6,23 @@ interface DaySeparatorProps extends Partial<AutoLayoutProps> {
 }
 
 export function DaySeparator({ label, name = "DaySeparator", ...props }: DaySeparatorProps) {
-  const BG = "#3C3C3E"               // оттенок как в TG
+  // Матовый тон: #212121 @ 54%
+  const TINT = { r: 0x21 / 255, g: 0x21 / 255, b: 0x21 / 255, a: 0.54 }
   const TEXT = "#FFFFFF"
+
   return (
     <AutoLayout
       name={name}
       horizontalAlignItems="center"
       verticalAlignItems="center"
-      padding={{ vertical: 2, horizontal: 7 }}
+      padding={{ vertical: 2, horizontal: 8 }}
       cornerRadius={14}
-      fill={BG}
+      fill={TINT}
+      // Тот же блюр, что на NewUserCard
+      effect={{ type: "background-blur", blur: 60 }}
       {...props}
     >
-      <Text fontSize={13} fontWeight={600} fill={TEXT}>
+      <Text fontSize={12} fontWeight={600} fill={TEXT}>
         {label}
       </Text>
     </AutoLayout>
