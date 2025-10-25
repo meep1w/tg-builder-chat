@@ -28,7 +28,7 @@ export function StatusAtom({ color, dir, ...props }: StatusAtomProps) {
 
    return (
       <AutoLayout name="StatusAtom" overflow="visible" spacing={3} horizontalAlignItems="end" verticalAlignItems="center" {...props}>
-         <Text name="10:15" fill={color} horizontalAlignText="right" fontSize={11} italic={true} fontWeight={500} strokeWidth={0} strokeAlign="center">
+         <Text name="10:15" fill={color} horizontalAlignText="right" fontSize={11} fontWeight={500} strokeWidth={0} strokeAlign="center">
             10:15
          </Text>
          <Frame hidden={dir === 0} name="double-check" strokeWidth={0} overflow="visible" width={14} height={7.909}>
