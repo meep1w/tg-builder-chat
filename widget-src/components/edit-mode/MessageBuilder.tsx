@@ -25,29 +25,47 @@ interface MessageBuilderProps extends Partial<AutoLayoutProps>, ReqCompProps {
 
 export function MessageBuilder({ editorManager, renderElement, theme, ...props }: MessageBuilderProps) {
   const [
-    { dir, type, text, name, extension, size, buttons, hidePreview, isImg, imgSrc },
+    {
+      // базовые поля сообщения
+      dir,
+      type,
+      text,
+      name,
+      extension,
+      size,
+      buttons,
+      hidePreview,
+      isImg,
+      imgSrc,
+
+      // время
+      messageTime,
+
+      // реакции
+      reactionEnabled,
+      reactionEmoji,
+      reactionTime,
+      rxnAvatarSrc,
+    },
     setEditorState,
     setChatState,
   ] = editorManager
 
-  // === Глобальные настройки (правые переключатели/поля) ======================
+  // правый сайдбар (глобальные настройки сцены)
   const [showHeaderActions, setShowHeaderActions] = useSyncedState<boolean>("showHeaderActions", true)
   const [showNewUserCard, setShowNewUserCard] = useSyncedState<boolean>("showNewUserCard", true)
   const [profileName, setProfileName] = useSyncedState<string>("profileName", "Random User")
   const [profileCountry, setProfileCountry] = useSyncedState<string>("profileCountry", "🇳🇬 Nigeria")
   const [profileReg, setProfileReg] = useSyncedState<string>("profileReg", "January 2024")
 
-  // НОВОЕ: поля хедера/статуса
   const [headerUsername, setHeaderUsername] = useSyncedState<string>("headerUsername", "Random User")
   const [headerLastSeen, setHeaderLastSeen] = useSyncedState<string>("headerLastSeen", "last seen just now")
   const [statusTime, setStatusTime] = useSyncedState<string>("statusTime", "9:41")
 
-  // НОВОЕ: процент батареи для статус-бара (читается IosHeaderStatus)
   const [batteryPercent, setBatteryPercent] = useSyncedState<number>("batteryPercent", 100)
 
-  // Day separator
-  const [dayState, setDayState] = useDynamicState<{ value: string }>({ value: "Today" })
-  // ==========================================================================
+  // разделитель дней
+  const [dayState, setDayState] = useDynamicState<{ value: string }>({ value: "Сегодня" })
 
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
   const setBatterySafe = (val: number) => setBatteryPercent(clamp(Math.round(val || 0), 0, 100))
@@ -58,6 +76,7 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
     )
   }
 
+  // кнопки в сообщении
   const updateButton = (row: number, id: number, newvals: Partial<Message["buttons"][number][number]>) => {
     setEditorState(
       "buttons",
@@ -73,7 +92,7 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
   const addButtonToRow = (row: number, nextId: number) => {
     setEditorState(
       "buttons",
-      buttons.map((r, i) => (i === row ? [...r, { id: nextId, text: `Button ${row + 1}-${nextId}`, hasRef: false }] : r)),
+      buttons.map((r, i) => (i === row ? [...r, { id: nextId, text: `Кнопка ${row + 1}-${nextId}`, hasRef: false }] : r)),
     )
   }
   const removeButtonFromRow = (row: number, id: number) => {
@@ -84,54 +103,95 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
     }
   }
   const addRowOfButtons = () =>
-    setEditorState("buttons", [...buttons, [{ id: 1, text: `Button ${buttons.length}-1`, hasRef: false }]])
+    setEditorState("buttons", [...buttons, [{ id: 1, text: `Кнопка ${buttons.length}-1`, hasRef: false }]])
 
-  /** Read message image from SPD tg_vault */
+  // загрузки из Shared Plugin Data (vault)
   const loadMessageImageFromVault = () => {
     const page = figma.currentPage
     try {
       const n = parseInt(page.getSharedPluginData("tg_vault", "messageImageChunks") || "0", 10)
-      if (!n || Number.isNaN(n)) return figma.notify("No Message Image in vault")
+      if (!n || Number.isNaN(n)) return figma.notify("В хранилище нет изображения сообщения")
       let out = ""
       for (let i = 0; i < n; i++) out += page.getSharedPluginData("tg_vault", `messageImageDataURL_${i}`) || ""
       if (out && out.startsWith("data:image/")) {
         setEditorState("imgSrc", out)
-        figma.notify("Message Image loaded")
-      } else figma.notify("Message Image not found or invalid")
+        figma.notify("Изображение сообщения загружено")
+      } else figma.notify("Не найдено корректное изображение сообщения")
     } catch (e) {
       console.warn("loadMessageImageFromVault", e)
-      figma.notify("Failed to read Message Image")
+      figma.notify("Ошибка чтения изображения сообщения")
+    }
+  }
+
+  const loadReactionAvatarFromVault = () => {
+    const page = figma.currentPage
+    try {
+      // сначала пробуем специальные ключи reactionAvatar*, иначе fallback на messageImage*
+      let n = parseInt(page.getSharedPluginData("tg_vault", "reactionAvatarChunks") || "0", 10)
+      let prefix = "reactionAvatarDataURL_"
+      if (!n || Number.isNaN(n)) {
+        n = parseInt(page.getSharedPluginData("tg_vault", "messageImageChunks") || "0", 10)
+        prefix = "messageImageDataURL_"
+      }
+      if (!n || Number.isNaN(n)) return figma.notify("В хранилище нет аватарки реакции")
+
+      let out = ""
+      for (let i = 0; i < n; i++) out += page.getSharedPluginData("tg_vault", `${prefix}${i}`) || ""
+      if (out && out.startsWith("data:image/")) {
+        setEditorState("rxnAvatarSrc", out)
+        figma.notify("Аватарка реакции загружена")
+      } else figma.notify("Не найдена корректная аватарка реакции")
+    } catch (e) {
+      console.warn("loadReactionAvatarFromVault", e)
+      figma.notify("Ошибка чтения аватарки реакции")
     }
   }
 
   const addMessageToChat = () => {
+    // циклим направление (In ↔ Out) для быстрой набивки примеров
     setEditorState("dir", (prev) => ((prev + 1) % EDITOR_INPUTS.dir.map.length) as typeof prev)
-    const newMessage: Message = { dir, type, text, name, extension, size, buttons, isImg, imgSrc }
+
+    // приоритет времени: если включены реакции и задано reactionTime — берём его, иначе общее messageTime
+    const computedTime =
+      (reactionEnabled && (reactionTime || "").trim())
+        ? reactionTime
+        : ((messageTime || "").trim() ? messageTime : undefined)
+
+    const base: Message = {
+      dir, type, text, name, extension, size, buttons, isImg, imgSrc,
+      time: computedTime,
+    }
+
+    const msg: WithReaction<Message> = reactionEnabled
+      ? { ...base, reaction: { emoji: (reactionEmoji ?? "❤️"), avatarSrc: rxnAvatarSrc || undefined } }
+      : base
+
     setChatState("messages", (prev) => {
       const all = [...(prev ?? [])]
       const last = all.pop()
       if (typeof last !== "undefined" && Array.isArray(last) && last[0]?.dir === dir) {
-        last.push(newMessage); all.push(last)
+        last.push(msg as Message); all.push(last)
       } else {
         if (typeof last !== "undefined") all.push(last)
-        all.push([newMessage])
+        all.push([msg as Message])
       }
       return all
     })
   }
 
-  // Day separator → отдельный элемент ленты
+  // разделитель дней
   const addDayDivider = () => {
     const label = (dayState.value || "").trim()
-    if (!label) return figma.notify("Day label is empty")
+    if (!label) return figma.notify("Подпись разделителя пуста")
     setChatState("messages", (prev) => {
       const all = [...(prev ?? [])]
       all.push({ kind: "day", label } as any)
       return all
     })
-    figma.notify(`Day divider added: ${label}`)
+    figma.notify(`Разделитель добавлен: ${label}`)
   }
 
+  // цвета
   const color = remapTokens({
     surface: {
       primaryHover: { dark: "#EAFFC8", light: "#567FE7" },
@@ -151,8 +211,7 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
     },
   })[theme]
 
-  const onOff = (v: boolean) => (v ? "On" : "Off")
-
+  // секция редактирования кнопок
   function ButtonsSection() {
     return (
       <AutoLayout name="Buttons Container" cornerRadius={8} overflow="visible" direction="vertical" spacing={12} width="fill-parent">
@@ -160,7 +219,7 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
           (buttonsRow, rowIndex) =>
             buttonsRow.length > 0 && (
               <ButtonsRow key={rowIndex}>
-                <ButtomSmall onEvent={() => removeButtonFromRow(rowIndex, buttonsRow.length - 1)} icon="minus" tooltip="Remove Button From Row" colorPalette={color} />
+                <ButtomSmall onEvent={() => removeButtonFromRow(rowIndex, buttonsRow.length - 1)} icon="minus" tooltip="Удалить кнопку из ряда" colorPalette={color} />
                 {buttonsRow.map((button, buttonIndex) => (
                   <ChatButtonEditable
                     key={buttonIndex}
@@ -171,17 +230,18 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
                     colorPalette={color}
                   />
                 ))}
-                <ButtomSmall onEvent={() => addButtonToRow(rowIndex, buttonsRow.length + 1)} tooltip="Add Button To Row" colorPalette={color} />
+                <ButtomSmall onEvent={() => addButtonToRow(rowIndex, buttonsRow.length + 1)} tooltip="Добавить кнопку в ряд" colorPalette={color} />
               </ButtonsRow>
             ),
         )}
         <ButtonsRow>
-          <ButtomSmall onEvent={() => addRowOfButtons()} colorPalette={color}>Add Row of Buttons</ButtomSmall>
+          <ButtomSmall onEvent={() => addRowOfButtons()} colorPalette={color}>Добавить ряд кнопок</ButtomSmall>
         </ButtonsRow>
       </AutoLayout>
     )
   }
 
+  // UI
   return (
     renderElement && (
       <AutoLayout
@@ -191,8 +251,10 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
         width={390}
         y={16}
         x={{ type: "right", offset: -25 - 390 }}
-        effect={[{ type: "drop-shadow", color: "#00000059", offset: { x: 0, y: 3 }, blur: 26, showShadowBehindNode: false },
-                 { type: "drop-shadow", color: "#00000040", offset: { x: 0, y: 4 }, blur: 108.5, showShadowBehindNode: false }]}
+        effect={[
+          { type: "drop-shadow", color: "#00000059", offset: { x: 0, y: 3 }, blur: 26, showShadowBehindNode: false },
+          { type: "drop-shadow", color: "#00000040", offset: { x: 0, y: 4 }, blur: 108.5, showShadowBehindNode: false },
+        ]}
         fill={color.surface.bg}
         cornerRadius={16}
         direction="vertical"
@@ -205,85 +267,153 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
         strokeDashPattern={[16, 8]}
         {...props}
       >
-        {/* Title */}
+        {/* Заголовок */}
         <Section horizontalAlignItems={"center"}>
-          <Text name="title" fill={color.text.default} verticalAlignText="center" lineHeight={22} fontSize={22} fontWeight={600} height={46}>Add New Message</Text>
-          <Icon tooltip={hidePreview ? "Show Preview Message" : "Hide Preview Message"} onEvent={() => setEditorState("hidePreview", (bool) => !bool)}
-                icon={hidePreview ? "show" : "hide"} theme={theme} opacity={hidePreview ? 1 : 0.5} x={{ type: "left", offset: 6 }}
-                color={hidePreview ? (color.surface.primaryHover as string) : (color.text.default as string)} />
-          <Icon tooltip="Reset New Message Inputs" onEvent={() => resetInputs()} icon={"reset"} theme={theme} color={color.text.default as string} />
+          <Text name="title" fill={color.text.default} verticalAlignText="center" lineHeight={22} fontSize={22} fontWeight={600} height={46}>
+            Новое сообщение
+          </Text>
+          <Icon
+            tooltip={hidePreview ? "Показать превью" : "Скрыть превью"}
+            onEvent={() => setEditorState("hidePreview", (bool) => !bool)}
+            icon={hidePreview ? "show" : "hide"}
+            theme={theme}
+            opacity={hidePreview ? 1 : 0.5}
+            x={{ type: "left", offset: 6 }}
+            color={hidePreview ? (color.surface.primaryHover as string) : (color.text.default as string)}
+          />
+          <Icon tooltip="Сбросить поля" onEvent={() => resetInputs()} icon={"reset"} theme={theme} color={color.text.default as string} />
         </Section>
 
-        {/* Direction */}
+        {/* 1. Направление и тип */}
         <Section>
-          <Label colorPalette={color}>Message Direction</Label>
-          <Selector onEvent={(_, i) => setEditorState("dir", i)} value={dir} options={[...EDITOR_INPUTS.dir.map]} tips={[...EDITOR_INPUTS.dir.tips]} colorPalette={color} />
+          <Label colorPalette={color}>Направление</Label>
+          <Selector
+            onEvent={(_, i) => setEditorState("dir", i)}
+            value={dir}
+            options={["Входящее", "Исходящее"]}
+            tips={["Слева (полупрозрачный фон)", "Справа (цветной фон)"]}
+            colorPalette={color}
+          />
         </Section>
 
-        {/* Type */}
         <Section>
-          <Label colorPalette={color}>Message Type</Label>
-          <Selector onEvent={(_, i) => setEditorState("type", i)} value={type} options={[...EDITOR_INPUTS.type.map]} tips={[...EDITOR_INPUTS.type.tips]} colorPalette={color} />
+          <Label colorPalette={color}>Тип сообщения</Label>
+          <Selector
+            onEvent={(_, i) => setEditorState("type", i)}
+            value={type}
+            options={["Файл", "Текст", "Картинка"]}
+            tips={["Файл/картинка с метаданными", "Обычный текст", "Фото с подписью"]}
+            colorPalette={color}
+          />
         </Section>
 
-        {/* Text / File / Image секции как были */}
+        {/* 2. Время */}
+        <Section>
+          <Label colorPalette={color}>Время (для статуса)</Label>
+          <TextInput
+            onEvent={(e) => setEditorState("messageTime", e.characters)}
+            value={messageTime ?? "10:15"}
+            placeholder="например, 10:15"
+            colorPalette={color}
+          />
+          <Text fill={color.text.default} opacity={0.6} fontSize={12}>
+            Если включены реакции и задано «Время реакции», оно имеет приоритет.
+          </Text>
+        </Section>
+
+        {/* 3. Содержимое */}
         <Section hidden={type !== 1}>
-          <Label colorPalette={color}>Message Content</Label>
-          <TextInput onEvent={(e) => setEditorState("text", e.characters)} value={text} placeholder="Text Message..." isResizable={true} colorPalette={color} />
+          <Label colorPalette={color}>Текст</Label>
+          <TextInput
+            onEvent={(e) => setEditorState("text", e.characters)}
+            value={text}
+            placeholder="Введите текст сообщения…"
+            isResizable={true}
+            colorPalette={color}
+          />
           <ButtonsSection />
         </Section>
 
         <Section hidden={type !== 0}>
-          <Label colorPalette={color}>Image Details</Label>
-          <TextInput onEvent={(e) => setEditorState("name", e.characters)} value={name} placeholder="Image/ File Name" colorPalette={color} />
-          <TextInput onEvent={(e) => setEditorState("extension", e.characters)} value={extension} placeholder="Image/ File Extension" colorPalette={color} />
-          <TextInput onEvent={(e) => setEditorState("size", e.characters)} value={size} placeholder="Image/ File Size" colorPalette={color} />
+          <Label colorPalette={color}>Файл / изображение</Label>
+          <TextInput onEvent={(e) => setEditorState("name", e.characters)} value={name} placeholder="Имя файла" colorPalette={color} />
+          <TextInput onEvent={(e) => setEditorState("extension", e.characters)} value={extension} placeholder="Расширение (например, .png)" colorPalette={color} />
+          <TextInput onEvent={(e) => setEditorState("size", e.characters)} value={size} placeholder="Размер (например, 2.1)" colorPalette={color} />
           <ButtonsSection />
-          <AutoLayout onClick={() => setEditorState("isImg", (prev) => !prev)} tooltip="File Preview Is Image" width={"fill-parent"} spacing={8} padding={{ vertical: 0, horizontal: 16 }} verticalAlignItems="center">
-            <Text name="title" fill={color.text.default} width="fill-parent" lineHeight={22} fontSize={17} fontWeight={500}>Compressed Image</Text>
+          <AutoLayout onClick={() => setEditorState("isImg", (prev) => !prev)} tooltip="Предпросмотр как изображение" width={"fill-parent"} spacing={8} padding={{ vertical: 0, horizontal: 16 }} verticalAlignItems="center">
+            <Text name="title" fill={color.text.default} width="fill-parent" lineHeight={22} fontSize={17} fontWeight={500}>
+              Сжатая картинка
+            </Text>
             <Slider onEvent={console.log} value={isImg} colorPalette={color} />
           </AutoLayout>
         </Section>
 
         <Section hidden={type !== 2}>
-          <Label colorPalette={color}>Message Content</Label>
-          <TextInput onEvent={(e) => setEditorState("text", e.characters)} value={text} placeholder="Text Message..." isResizable={true} colorPalette={color} />
+          <Label colorPalette={color}>Картинка с подписью</Label>
+          <TextInput onEvent={(e) => setEditorState("text", e.characters)} value={text} placeholder="Подпись (необязательно)" isResizable={true} colorPalette={color} />
           <ButtonsSection />
-          <Button onEvent={loadMessageImageFromVault} colorPalette={color}>Load Image from Vault</Button>
-          <Text name="img-hint" fill={color.text.default} opacity={imgSrc ? 0.8 : 0.5} fontSize={12}>{imgSrc ? "Image loaded" : "No image loaded"}</Text>
+          <Button onEvent={loadMessageImageFromVault} colorPalette={color}>Загрузить фото из Vault</Button>
+          <Text name="img-hint" fill={color.text.default} opacity={imgSrc ? 0.8 : 0.5} fontSize={12}>
+            {imgSrc ? "Фото загружено" : "Фото не загружено"}
+          </Text>
         </Section>
 
-        {/* Advanced header */}
-        <Section><Label isCollapsable={true} colorPalette={color}>Advanced</Label></Section>
-
-        {/* Переключатели и поля карточки */}
+        {/* 4. Реакции */}
         <Section>
-          <Label colorPalette={color}>Show “Block / Add to Contacts”</Label>
-          <Button onEvent={() => setShowHeaderActions((v) => !v)} colorPalette={color}>{showHeaderActions ? "On" : "Off"}</Button>
+          <Label colorPalette={color}>Реакции (Telegram)</Label>
+          <ButtonsRow>
+            <ButtomSmall onEvent={() => setEditorState("reactionEnabled", (v: boolean) => !v)} colorPalette={color}>
+              {reactionEnabled ? "Вкл" : "Выкл"}
+            </ButtomSmall>
+            <TextInput
+              onEvent={(e) => setEditorState("reactionEmoji", e.characters)}
+              value={reactionEmoji ?? "❤️"}
+              placeholder="Эмодзи (напр. ❤️, 👍, 😂)"
+              colorPalette={color}
+            />
+            <TextInput
+              onEvent={(e) => setEditorState("reactionTime", e.characters)}
+              value={reactionTime ?? "10:15"}
+              placeholder="Время реакции (напр. 10:15)"
+              colorPalette={color}
+            />
+          </ButtonsRow>
+          <ButtonsRow>
+            <Button onEvent={loadReactionAvatarFromVault} colorPalette={color}>Загрузить аватар реакции из Vault</Button>
+          </ButtonsRow>
+          <Text name="rxn-img-hint" fill={color.text.default} opacity={rxnAvatarSrc ? 0.8 : 0.5} fontSize={12}>
+            {rxnAvatarSrc ? "Аватарка загружена" : "Аватарка не загружена"}
+          </Text>
+        </Section>
+
+        {/* 5. Расширенные настройки сцены */}
+        <Section><Label isCollapsable={true} colorPalette={color}>Дополнительно</Label></Section>
+
+        <Section>
+          <Label colorPalette={color}>Кнопки «Заблокировать / Добавить в контакты»</Label>
+          <Button onEvent={() => setShowHeaderActions((v) => !v)} colorPalette={color}>{showHeaderActions ? "Вкл" : "Выкл"}</Button>
         </Section>
 
         <Section>
-          <Label colorPalette={color}>Show New User Card</Label>
-          <Button onEvent={() => setShowNewUserCard((v) => !v)} colorPalette={color}>{showNewUserCard ? "On" : "Off"}</Button>
+          <Label colorPalette={color}>Карточка «Новый пользователь»</Label>
+          <Button onEvent={() => setShowNewUserCard((v) => !v)} colorPalette={color}>{showNewUserCard ? "Вкл" : "Выкл"}</Button>
         </Section>
 
         <Section>
-          <TextInput onEvent={(e) => setProfileName(e.characters)} value={profileName} placeholder="Random User" colorPalette={color} />
-          <TextInput onEvent={(e) => setProfileCountry(e.characters)} value={profileCountry} placeholder="🇳🇬 Nigeria" colorPalette={color} />
-          <TextInput onEvent={(e) => setProfileReg(e.characters)} value={profileReg} placeholder="January 2024" colorPalette={color} />
+          <TextInput onEvent={(e) => setProfileName(e.characters)} value={profileName} placeholder="Имя профиля" colorPalette={color} />
+          <TextInput onEvent={(e) => setProfileCountry(e.characters)} value={profileCountry} placeholder="Страна" colorPalette={color} />
+          <TextInput onEvent={(e) => setProfileReg(e.characters)} value={profileReg} placeholder="Регистрация (месяц год)" colorPalette={color} />
         </Section>
 
-        {/* НОВОЕ: поля хедера и статус-бара */}
         <Section>
-          <Label colorPalette={color}>Header & Status</Label>
-          <TextInput onEvent={(e) => setHeaderUsername(e.characters)} value={headerUsername} placeholder="Header Username" colorPalette={color} />
-          <TextInput onEvent={(e) => setHeaderLastSeen(e.characters)} value={headerLastSeen} placeholder="last seen recently" colorPalette={color} />
-          <TextInput onEvent={(e) => setStatusTime(e.characters)} value={statusTime} placeholder="9:41" colorPalette={color} />
+          <Label colorPalette={color}>Хедер и статус</Label>
+          <TextInput onEvent={(e) => setHeaderUsername(e.characters)} value={headerUsername} placeholder="Ник в шапке" colorPalette={color} />
+          <TextInput onEvent={(e) => setHeaderLastSeen(e.characters)} value={headerLastSeen} placeholder="last seen…" colorPalette={color} />
+          <TextInput onEvent={(e) => setStatusTime(e.characters)} value={statusTime} placeholder="Время статус-бара (9:41)" colorPalette={color} />
         </Section>
 
-        {/* НОВОЕ: Battery */}
         <Section>
-          <Label colorPalette={color}>Battery</Label>
+          <Label colorPalette={color}>Батарея</Label>
           <AutoLayout width={"fill-parent"} spacing={8} verticalAlignItems="center">
             <ButtomSmall onEvent={() => setBatterySafe(batteryPercent - 10)} tooltip="-10%" colorPalette={color}>-10</ButtomSmall>
             <ButtomSmall onEvent={() => setBatterySafe(batteryPercent - 1)} tooltip="-1%" colorPalette={color}>-1</ButtomSmall>
@@ -300,18 +430,19 @@ export function MessageBuilder({ editorManager, renderElement, theme, ...props }
             <ButtomSmall onEvent={() => setBatterySafe(batteryPercent + 10)} tooltip="+10%" colorPalette={color}>+10</ButtomSmall>
           </AutoLayout>
           <Text fill={color.text.default} opacity={0.6} fontSize={12}>
-            1–20% будет красной заливкой и белыми цифрами; 0% — пустая с красными цифрами.
+            1–20% — красная заливка и белые цифры; 0% — пустая с красными цифрами.
           </Text>
         </Section>
 
-        {/* Day separator */}
+        {/* 6. Разделитель дней */}
         <Section>
-          <Label colorPalette={color}>Day Separator</Label>
-          <TextInput onEvent={(e) => setDayState("value", e.characters)} value={dayState.value} placeholder="Today / 1 November / Yesterday" colorPalette={color} />
-          <Button onEvent={addDayDivider} colorPalette={color}>Add Day Separator</Button>
+          <Label colorPalette={color}>Разделитель дня</Label>
+          <TextInput onEvent={(e) => setDayState("value", e.characters)} value={dayState.value} placeholder="Сегодня / Вчера / 1 ноября" colorPalette={color} />
+          <Button onEvent={addDayDivider} colorPalette={color}>Добавить разделитель</Button>
         </Section>
 
-        <Button onEvent={addMessageToChat} colorPalette={color}>Add To Chat</Button>
+        {/* Финальная кнопка */}
+        <Button onEvent={addMessageToChat} colorPalette={color}>Добавить в чат</Button>
       </AutoLayout>
     )
   )

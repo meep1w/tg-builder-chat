@@ -1,23 +1,30 @@
 // Dependencies
 const { Frame, AutoLayout, Text, SVG } = figma.widget
-// Components
 import { remapTokens } from "@/utils"
 
-/** Import Changelog
- * Tail Atom (Merged In Out with props)
- * Add color object (surface) at Atom & Status (handle theme mode with remapTokens() from utils )
- * Add ReqCompProps (theme) to Atom & Status
- * Handle all svg paths outside the return jsx statement, as const
- */
+// ====================== StatusAtom ======================
 
 interface StatusAtomProps extends Partial<AutoLayoutProps> {
-  /** Status color */
+  /** Цвет текста и иконок статуса */
   color: Color
-  status?: "read" | "pending" | "sent" | "received"
-  dir: number
+  /** "10:15" и т.п. (обязательный для явного управления) */
+  time?: string
+  /** Показывать ли двойные галочки (обычно только для dir=1) */
+  showChecks?: boolean
+  /** Направление сообщения: 0 — in, 1 — out (влияет только на дефолт showChecks) */
+  dir: 0 | 1
 }
 
-export function StatusAtom({ color, dir, ...props }: StatusAtomProps) {
+export function StatusAtom({
+  color,
+  dir,
+  time = "10:15",
+  showChecks,
+  ...props
+}: StatusAtomProps) {
+  // По умолчанию галочки видны только у исходящих (dir=1)
+  const checks = typeof showChecks === "boolean" ? showChecks : dir === 1
+
   const svgPaths = {
     doubleCheck: `<svg width='14' height='9' viewBox='0 0 14 9' fill='none' xmlns='http://www.w3.org/2000/svg'>
       <path d='M6.63361 7.62383L13.1336 0.703371C13.3215 0.503315 13.6379 0.491731 13.8402 0.677497C14.0201 0.842623 14.0493 1.1081 13.9217 1.30556L13.8664 1.37609L7.3664 8.29654C7.1785 8.4966 6.86213 8.50818 6.65978 8.32242C6.47991 8.15729 6.45066 7.89182 6.57835 7.69436L6.63361 7.62383L13.1336 0.703371L6.63361 7.62383Z' fill='${color}'/>
@@ -35,7 +42,6 @@ export function StatusAtom({ color, dir, ...props }: StatusAtomProps) {
       {...props}
     >
       <Text
-        name="10:15"
         fill={color}
         horizontalAlignText="right"
         fontSize={11}
@@ -43,21 +49,30 @@ export function StatusAtom({ color, dir, ...props }: StatusAtomProps) {
         strokeWidth={0}
         strokeAlign="center"
       >
-        10:15
+        {time}
       </Text>
-      <Frame hidden={dir === 0} name="double-check" strokeWidth={0} overflow="visible" width={14} height={7.909}>
+      <Frame
+        hidden={!checks}
+        name="double-check"
+        strokeWidth={0}
+        overflow="visible"
+        width={14}
+        height={7.909}
+      >
         <SVG name="Path_Path" height={8} width={14} src={svgPaths.doubleCheck} />
       </Frame>
     </AutoLayout>
   )
 }
 
+// ====================== TailAtom ======================
+
 interface TailAtomProps extends ReqCompProps, Partial<FrameProps> {
-  dir: number
+  dir: 0 | 1
 }
 
 export function TailAtom({ dir, theme, ...props }: TailAtomProps) {
-  // Цвета по теме (Out оставляем как было)
+  // Цвета по теме (Out как было)
   const color = remapTokens({
     surface: {
       In:  { dark: "#191919", light: "white" },
@@ -66,19 +81,19 @@ export function TailAtom({ dir, theme, ...props }: TailAtomProps) {
     text: {},
   })[theme]
 
-  // Матовая заливка для IN — как у пузыря: rgba(33,33,33,0.54)
+  // Матовая заливка для IN — совпадает с пузырём
   const MATTE_IN = "rgba(33,33,33,0.54)"
   const fillIn  = MATTE_IN
   const fillOut = color.surface.Out
 
   const svgPaths = {
     tail: [
-      // IN (dir=0) — матовый хвост
+      // IN (dir=0)
       `<svg width='14' height='21' viewBox='0 0 14 21' fill='none' xmlns='http://www.w3.org/2000/svg'>
         <path d='M6.0874 4.2408C6.07746 4.00483 6.07243 3.76761 6.07243 3.52922C6.07243 0.329218 10.3115 -0.137449 12.431 0.0292181C13.5977 4.60169 15.231 14.3249 12.431 16.6379C9.23879 19.4306 5.15531 20.5878 0.180569 20.1094C0.117102 20.1033 0.0603914 20.0676 0.0279045 20.0134C-0.0283432 19.9194 0.00307751 19.7982 0.0980797 19.7426L0.457226 19.5283C2.81102 18.0973 4.35045 16.615 5.0755 15.0814C5.85649 13.4294 6.19381 9.81615 6.0874 4.2408Z'
           fill='${fillIn}'/>
       </svg>`,
-      // OUT (dir=1) — как раньше, по теме
+      // OUT (dir=1)
       `<svg width='14' height='21' viewBox='0 0 14 21' fill='none' xmlns='http://www.w3.org/2000/svg'>
         <path d='M7.88965 4.2408C7.89959 4.00483 7.90462 3.76761 7.90462 3.52922C7.90462 0.329218 3.66556 -0.137449 1.54602 0.0292181C0.379358 4.60169 -1.25398 14.3249 1.54602 16.6379C4.73826 19.4306 8.82174 20.5878 13.7965 20.1094C13.8599 20.1033 13.9167 20.0676 13.9491 20.0134C14.0054 19.9194 13.974 19.7982 13.879 19.7426L13.5198 19.5283C11.166 18.0973 9.62661 16.615 8.90155 15.0814C8.12056 13.4294 7.78325 9.81615 7.88965 4.2408Z'
           fill='${fillOut}'/>

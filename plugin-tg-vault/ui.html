@@ -20,43 +20,53 @@
 </head>
 <body>
   <div class="card" id="card-avatar">
-    <div class="title">Avatar</div>
+    <div class="title">Аватарка</div>
     <div class="row">
       <div class="thumb"><img id="avatar-preview" alt=""></div>
       <input id="avatar-file" type="file" accept="image/*">
-      <button class="secondary" data-choose="avatar">Choose image</button>
-      <button data-upload="avatar">Upload</button>
-      <button class="secondary" data-clear="avatar">Clear</button>
+      <button data-upload="avatar">Загрузить</button>
+      <button class="secondary" data-clear="avatar">Очистить</button>
     </div>
-    <div class="muted nowrap">Saved to Shared Plugin Data: <b>tg_vault</b> / <code>avatarHash</code> · <span id="avatar-hash"></span></div>
+    <div class="muted nowrap">Сохранено как Data: <b>tg_vault</b> / <code>avatarHash</code> · <span id="avatar-hash"></span></div>
   </div>
 
   <div class="card" id="card-wallpaper">
-    <div class="title">Wallpaper</div>
+    <div class="title">Обои чата</div>
     <div class="row">
       <div class="thumb"><img id="wallpaper-preview" alt=""></div>
       <input id="wallpaper-file" type="file" accept="image/*">
-      <button class="secondary" data-choose="wallpaper">Choose image</button>
-      <button data-upload="wallpaper">Upload</button>
-      <button class="secondary" data-clear="wallpaper">Clear</button>
+      <button data-upload="wallpaper">Загрузить</button>
+      <button class="secondary" data-clear="wallpaper">Очистить</button>
     </div>
-    <div class="muted nowrap">Saved to Shared Plugin Data: <b>tg_vault</b> / <code>wallpaperHash</code> · <span id="wallpaper-hash"></span></div>
+    <div class="muted nowrap">Сохранено как Data: <b>tg_vault</b> / <code>wallpaperHash</code> · <span id="wallpaper-hash"></span></div>
   </div>
 
   <div class="card" id="card-messageImage">
-    <div class="title">Message Image</div>
+    <div class="title">Картинка в сообщении</div>
     <div class="row">
       <div class="thumb"><img id="messageImage-preview" alt=""></div>
       <input id="messageImage-file" type="file" accept="image/*">
-      <button class="secondary" data-choose="messageImage">Choose image</button>
-      <button data-upload="messageImage">Upload</button>
-      <button class="secondary" data-clear="messageImage">Clear</button>
+      <button data-upload="messageImage">Загрузить</button>
+      <button class="secondary" data-clear="messageImage">Очистить</button>
     </div>
-    <div class="muted nowrap">Saved to Shared Plugin Data: <b>tg_vault</b> / <code>messageImageHash</code> · <span id="messageImage-hash"></span></div>
+    <div class="muted nowrap">Сохранено как Data: <b>tg_vault</b> / <code>messageImageHash</code> · <span id="messageImage-hash"></span></div>
+  </div>
+
+  <!-- NEW: Reaction Avatar -->
+  <div class="card" id="card-reactionAvatar">
+    <div class="title">Аватрка для реакций</div>
+    <div class="row">
+      <div class="thumb"><img id="reactionAvatar-preview" alt=""></div>
+      <input id="reactionAvatar-file" type="file" accept="image/*">
+      <button data-upload="reactionAvatar">Загрузить</button>
+      <button class="secondary" data-clear="reactionAvatar">Очистить</button>
+    </div>
+    <div class="muted nowrap">Сохранено как Data: <b>tg_vault</b> / <code>reactionAvatarHash</code> · <span id="reactionAvatar-hash"></span></div>
   </div>
 
   <script>
-    const state = { avatar: '', wallpaper: '', messageImage: '' };
+    const kinds = ['avatar','wallpaper','messageImage','reactionAvatar'];
+    const state = { avatar: '', wallpaper: '', messageImage: '', reactionAvatar: '' };
 
     function setPreview(kind, dataURL) {
       state[kind] = dataURL || '';
@@ -68,7 +78,7 @@
       if (el) el.textContent = hash || '';
     }
 
-    for (const kind of ['avatar','wallpaper','messageImage']) {
+    for (const kind of kinds) {
       const fileInput = document.getElementById(`${kind}-file`);
       const chooseBtn = document.querySelector(`[data-choose="${kind}"]`);
       const uploadBtn = document.querySelector(`[data-upload="${kind}"]`);
@@ -117,6 +127,7 @@
         if ('avatarHash' in msg.state) setHash('avatar', msg.state.avatarHash);
         if ('wallpaperHash' in msg.state) setHash('wallpaper', msg.state.wallpaperHash);
         if ('messageImageHash' in msg.state) setHash('messageImage', msg.state.messageImageHash);
+        if ('reactionAvatarHash' in msg.state) setHash('reactionAvatar', msg.state.reactionAvatarHash);
       }
 
       if (msg.type === 'STATE') {
@@ -128,4 +139,5 @@
       }
     };
   </script>
-</
+</body>
+</html>
