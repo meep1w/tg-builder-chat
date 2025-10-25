@@ -12,8 +12,8 @@ export function Header({ value, profilePicSrc, profilePicHash = null, onEvent, t
   const reqChildProps = { theme }
 
   // редактируемые поля
-  const [headerUsername, setHeaderUsername] = useSyncedState<string>("headerUsername", value ?? "Random User")
-  const [headerLastSeen] = useSyncedState<string>("headerLastSeen", "last seen just now")
+  const [headerUsername, setHeaderUsername] = useSyncedState<string>("headerUsername", value ?? "@innerworldsss")
+  const [headerLastSeen] = useSyncedState<string>("headerLastSeen", "last seen recently")
 
   const color = remapTokens({
     surface: { container: { dark: "#1C1C1D", light: "#F6F6F6" } },
@@ -107,7 +107,7 @@ export function Header({ value, profilePicSrc, profilePicHash = null, onEvent, t
             lineHeight={18}
             fontSize={17}
             letterSpacing={-0.4}
-            fontWeight={500}
+            fontWeight={700}
             value={headerUsername}
             onTextEditEnd={(e) => {
               setHeaderUsername(e.characters)

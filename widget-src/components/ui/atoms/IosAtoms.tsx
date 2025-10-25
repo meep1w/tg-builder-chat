@@ -88,7 +88,7 @@ export function IosHeaderStatus({ theme, ...props }: IosHeaderProps) {
         verticalAlignItems="center"
         horizontalAlignItems="center"
       >
-        <Text fontSize={15} fontWeight={600} fill={color.text.status}>
+        <Text fontSize={15} fontWeight={700} fill={color.text.status}>
           {statusTime}
         </Text>
       </AutoLayout>
@@ -120,7 +120,7 @@ export function IosHeaderStatus({ theme, ...props }: IosHeaderProps) {
             verticalAlignItems="center"
             horizontalAlignItems="center"
           >
-            <Text fontSize={8} fontWeight={700} fill={textColor} letterSpacing={-0.2}>
+            <Text fontSize={9} fontWeight={700} fill={textColor} letterSpacing={-0.2}>
               {pct}
             </Text>
           </AutoLayout>
