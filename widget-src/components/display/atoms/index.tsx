@@ -16,7 +16,7 @@ export function DirectionContainer({ children, dir, ...props }: SideContainerPro
           name="In"
           overflow="visible"
           direction="vertical"
-          spacing={8}
+          spacing={1.5}                 // in/in зазор 5px
           width="fill-parent"
           {...props}
         >
@@ -29,7 +29,7 @@ export function DirectionContainer({ children, dir, ...props }: SideContainerPro
           name="Out"
           overflow="visible"
           direction="vertical"
-          spacing={8}
+          spacing={1.5}                 // out/out зазор 5px
           width="fill-parent"
           verticalAlignItems="center"
           horizontalAlignItems="end"
@@ -52,7 +52,7 @@ export function WithButtons({ children, buttons, theme, ...props }: WithButtonsP
       overflow="visible"
       direction="vertical"
       spacing={8}
-      width="hug-contents"               // было по умолчанию; фиксируем явно
+      width="hug-contents"
       horizontalAlignItems="end"
       {...props}
     >
@@ -66,7 +66,7 @@ export function WithButtons({ children, buttons, theme, ...props }: WithButtonsP
         overflow="visible"
         direction="vertical"
         spacing={4}
-        width="hug-contents"             // раньше было fill-parent — тянуло ширину/высоту
+        width="hug-contents"
       >
         {/* Buttons Row */}
         {buttons.map(
@@ -77,7 +77,7 @@ export function WithButtons({ children, buttons, theme, ...props }: WithButtonsP
                 name="Row"
                 overflow="visible"
                 spacing={4}
-                width="hug-contents"     // не растягиваем
+                width="hug-contents"
                 horizontalAlignItems="center"
                 verticalAlignItems="center"
               >
@@ -87,7 +87,7 @@ export function WithButtons({ children, buttons, theme, ...props }: WithButtonsP
                     config={{ hasRef: false }}
                     theme={theme}
                     name="chat-button"
-                    width="hug-contents"  // не растягиваем кнопки, чтобы не влияли на высоту/ширину сообщения
+                    width="hug-contents"
                   >
                     {button.text}
                   </Button>

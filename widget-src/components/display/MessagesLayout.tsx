@@ -1,5 +1,3 @@
-// widget-src/components/display/MessagesLayout.tsx
-
 // Dependencies
 const { AutoLayout, useSyncedState } = figma.widget
 // Components
@@ -11,17 +9,14 @@ import { NewUserCard } from "@/components/ui/NewUserCard"
 type DayDivider = { label: string } & ({ kind: "day" } | { type: "day" })
 
 interface MessagesLayoutProps extends Partial<AutoLayoutProps>, ReqCompProps, OptionalRender {
-  // допускаем группы сообщений и day-divider'ы
   messages?: (Message[] | DayDivider | undefined)[]
 }
 
 /** Arranges messages (In/Out). Supports inline day dividers and the NewUserCard at the top. */
 export function MessagesLayout({ messages, renderElements, children, theme, ...props }: MessagesLayoutProps) {
-  // режим "Last Message Only"
   const lastSide = messages?.filter(Boolean).slice(-1)[0]
   const lastMessage = Array.isArray(lastSide) ? lastSide[lastSide.length - 1] : undefined
 
-  // читаем ТЕ ЖЕ ключи, что пишет MessageBuilder
   const [showNewUserCard] = useSyncedState<boolean>("showNewUserCard", true)
   const [profileName] = useSyncedState<string>("profileName", "Random User")
   const [profileCountry] = useSyncedState<string>("profileCountry", "🇳🇬 Nigeria")
@@ -40,9 +35,14 @@ export function MessagesLayout({ messages, renderElements, children, theme, ...p
     )
   }
 
-  // отступы вокруг карточки (как обсуждали)
+  // Межгрупповой зазор
+  const GROUP_GAP = 10
   const GAP_BELOW_ACTIONS = 34
   const GAP_BELOW_CARD = 16
+
+  // Считаем общее количество OUT для нормализации тона
+  const totalOut = (messages || []).reduce((acc, entry) => (Array.isArray(entry) ? acc + entry.filter(m => m?.dir === 1).length : acc), 0)
+  let seenOut = 0
 
   return (
     <AutoLayout
@@ -51,58 +51,49 @@ export function MessagesLayout({ messages, renderElements, children, theme, ...p
       y={{ type: "bottom", offset: 0 }}
       overflow="visible"
       direction="vertical"
-      spacing={24}
+      spacing={GROUP_GAP}
       padding={{ vertical: 16, horizontal: 8 }}
       width={390}
       verticalAlignItems="end"
       horizontalAlignItems="center"
       {...props}
     >
-      {/* Карточка нового пользователя — первый элемент ленты, по центру */}
       {showNewUserCard && (
-        <AutoLayout
-          name="NewUserIntro"
-          direction="vertical"
-          width="fill-parent"
-          horizontalAlignItems="center"
-          padding={{ top: GAP_BELOW_ACTIONS, bottom: GAP_BELOW_CARD }}
-        >
+        <AutoLayout name="NewUserIntro" direction="vertical" width="fill-parent" horizontalAlignItems="center" padding={{ top: GAP_BELOW_ACTIONS, bottom: GAP_BELOW_CARD }}>
           <NewUserCard username={profileName} country={profileCountry} registration={profileReg} />
         </AutoLayout>
       )}
 
-      {/* Основной проход по элементам ленты */}
       {messages?.map((entry, key) => {
-        // 1) day-divider (поддерживаем kind/type)
+        // Day divider
         if (entry && typeof entry === "object" && !Array.isArray(entry) && (entry as any).label) {
           const isDay = (entry as any).kind === "day" || (entry as any).type === "day"
           if (isDay) {
             const d = entry as DayDivider
             return (
-              <AutoLayout
-                key={`day-${key}`}
-                width="fill-parent"
-                horizontalAlignItems="center"
-                verticalAlignItems="center"
-              >
+              <AutoLayout key={`day-${key}`} width="fill-parent" horizontalAlignItems="center" verticalAlignItems="center">
                 <DaySeparator label={d.label} />
               </AutoLayout>
             )
           }
         }
 
-        // 2) группа сообщений (как раньше)
         const dirMsg = entry as Message[] | undefined
+        if (!dirMsg) return null
+
         return (
-          dirMsg && (
-            <DirectionContainer key={key} dir={dirMsg[0].dir}>
-              {dirMsg.map((msg, i) => (
+          <DirectionContainer key={key} dir={dirMsg[0].dir}>
+            {dirMsg.map((msg, i) => {
+              // Тон только для OUT
+              const tone = msg.dir === 1 && totalOut > 0 ? (seenOut++ , Math.min(seenOut - 1, totalOut - 1) / Math.max(totalOut - 1, 1)) : undefined
+              return (
                 <WithButtons key={i} buttons={msg.buttons} theme={theme}>
-                  <Message {...msg} theme={theme} />
+                  {/* прокидываем tone — компонент его понимает */}
+                  <Message {...msg} theme={theme} tone={tone as any} />
                 </WithButtons>
-              ))}
-            </DirectionContainer>
-          )
+              )
+            })}
+          </DirectionContainer>
         )
       })}
 

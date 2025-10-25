@@ -32,6 +32,46 @@ function getImageSize(dataURL: string): { w: number; h: number } {
   }
 }
 
+// --- layout / measurement constants ---
+const LAYOUT = {
+  tailX: ["left", "right"] as const,
+  radius: [
+    { topLeft: 16, topRight: 18, bottomRight: 18, bottomLeft: 18 },
+    { topLeft: 18, topRight: 16, bottomRight: 18, bottomLeft: 18 },
+  ] as const,
+  maxImageW: 276,
+  minImageW: 118,
+  minImageH: 118,
+  textMaxW: 250, // даёт ~31 цифру / 33 lower / 27 UPPER
+  statusWidthByDir: [28, 43] as const, // in: только время, out: время+галочки
+  perLine: { lower: 33, digits: 31, upper: 27 },
+}
+
+// Matte для IN (dir=0)
+const MATTE_BG = { r: 0x21 / 255, g: 0x21 / 255, b: 0x21 / 255, a: 0.54 } // #212121 @54%
+const MATTE_TEXT = "#FFFFFF"
+const MATTE_LABEL = "#B1B8C2"
+
+// для кириллицы и латиницы
+const UPPER_RE = /^[A-ZА-ЯЁ]+$/
+const DIGIT_RE = /^[0-9]+$/
+
+function lastLineFitsTime(text: string, dir: 0 | 1): { inline: boolean } {
+  const last = (text || "").split("\n").pop() || ""
+  const cap =
+    DIGIT_RE.test(last) ? LAYOUT.perLine.digits :
+    UPPER_RE.test(last) ? LAYOUT.perLine.upper :
+    LAYOUT.perLine.lower
+
+  const len = last.length % cap || (last.length ? cap : 0)
+
+  // Оценка «места» под время в конце строки:
+  // для входящих (без галочек) запас меньше.
+  const timeChReserve = dir === 0 ? 4 : 6
+  const inline = len <= Math.max(cap - timeChReserve, 0)
+  return { inline }
+}
+
 export function Message({ dir, theme, ...props }: PropByType[number] & MessageProps): void {
   const reqChildProps = { type: props.type, dir, theme }
   const color = remapTokens({
@@ -42,59 +82,57 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
       label0: { dark: "#8D8D8F", light: "#8D8D8F" },
       label1: { dark: "#8D8D8F", light: "#3EAA3C" },
     },
-    // мягкая обводка пузыря
     stroke: {
       bubble: { dark: "#FFFFFF1A", light: "#00000014" },
     },
   })[theme]
 
-  const layout = {
-    tailX: ["left", "right"] as const,
-    radius: [
-      { topLeft: 16, topRight: 18, bottomRight: 18, bottomLeft: 18 },
-      { topLeft: 18, topRight: 16, bottomRight: 18, bottomLeft: 18 },
-    ] as const,
-    maxImageW: 276,
-    minImageW: 118,
-    minImageH: 118,
-  }
+  // Переключение цветов/эффектов для IN-матта
+  const isIn = dir === 0
+  const bubbleFill = isIn ? MATTE_BG : (color.surface as any)[dir]
+  const primaryText = isIn ? MATTE_TEXT : (color.text as any)[`primary${dir}`]
+  const labelText = isIn ? MATTE_LABEL : (color.text as any)[`label${dir}`]
 
   const imgSrc = (props as unknown as Message).imgSrc
+  const statusWidth = LAYOUT.statusWidthByDir[dir]
 
   function Container({ children, showBox = true }: Partial<AutoLayoutProps> & { showBox?: boolean }) {
+    const basePadH = props.type === 0 ? 8 : 14
+
+    // НЕ прокидываем width/x/y из props, чтобы контейнер не становился fill-parent
+    const { width: _w, height: _h, x: _x, y: _y, ...forward } = (props as any) || {}
+
     return (
       <AutoLayout
         name={`Message${EDITOR_INPUTS.type.map[props.type] + dir}`}
         effect={{ type: "drop-shadow", color: "#00000040", offset: { x: 0, y: 4 }, blur: 22.6, showShadowBehindNode: false }}
         overflow="visible"
         verticalAlignItems="end"
-        {...props}
+        width="hug-contents"
+        {...forward}
       >
-        <TailAtom {...reqChildProps} name="_tail-atom" x={{ type: layout.tailX[dir], offset: -6.077 }} y={{ type: "bottom", offset: -1 }} positioning="absolute" />
+        <TailAtom
+          {...reqChildProps}
+          name="_tail-atom"
+          x={{ type: LAYOUT.tailX[dir], offset: -6.077 }}
+          y={{ type: "bottom", offset: -1 }}
+          positioning="absolute"
+        />
         {showBox ? (
           <AutoLayout
             name="text box"
-            fill={color.surface[dir]}
-            cornerRadius={layout.radius[dir]}
+            fill={bubbleFill}
+            cornerRadius={LAYOUT.radius[dir]}
             direction="vertical"
             spacing={6}
-            padding={{ vertical: 8, horizontal: props.type === 0 ? 8 : 14 }}
+            padding={{ vertical: 8, horizontal: basePadH }}
+            effect={isIn ? { type: "background-blur", blur: 60 } : undefined}
           >
             {children}
           </AutoLayout>
         ) : (
           children
         )}
-        <StatusAtom
-          {...reqChildProps}
-          color={color.text[`label${props.type === 2 ? 0 : dir}`]}
-          dir={dir}
-          name="_status-atom"
-          x={{ type: "right", offset: 12 }}
-          y={{ type: "bottom", offset: 4 }}
-          positioning="absolute"
-          width={43}
-        />
       </AutoLayout>
     )
   }
@@ -109,12 +147,12 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
             <Image name="Preview" cornerRadius={11} width={74} height={74} src={previewSrc} />
             <AutoLayout name="Stats" overflow="visible" direction="vertical" padding={{ vertical: 0, horizontal: 8 }}>
               <AutoLayout name="Frame 3" overflow="visible" width="fill-parent">
-                <Text fill={color.text[`primary${dir}`]} lineHeight={21} letterSpacing={-0.3}>{name}</Text>
-                <Text fill={color.text[`primary${dir}`]} lineHeight={21} letterSpacing={-0.3}>{extension}</Text>
+                <Text fill={primaryText} lineHeight={21} letterSpacing={-0.3}>{name}</Text>
+                <Text fill={primaryText} lineHeight={21} letterSpacing={-0.3}>{extension}</Text>
               </AutoLayout>
               <AutoLayout name="Frame 2" overflow="visible" width={43}>
-                <Text fill={color.text[`label${dir}`]} fontSize={13} letterSpacing={-0.1}>{size}</Text>
-                <Text fill={color.text[`label${dir}`]} fontSize={13} letterSpacing={-0.1}>{"  "}MB</Text>
+                <Text fill={labelText} fontSize={13} letterSpacing={-0.1}>{size}</Text>
+                <Text fill={labelText} fontSize={13} letterSpacing={-0.1}>{"  "}MB</Text>
               </AutoLayout>
             </AutoLayout>
           </AutoLayout>
@@ -124,13 +162,68 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
 
     case 1: {
       const { text } = props
+      const { inline } = lastLineFitsTime(text, dir as 0 | 1)
+
       return (
         <Container>
-          <AutoLayout name="Content Text" minWidth={60} maxWidth={250} overflow="visible" spacing={8}>
-            <Text fill={color.text[`primary${dir}`]} width="fill-parent" lineHeight={22} fontSize={15} letterSpacing={-0.4}>
-              {text + "                "}
-            </Text>
-          </AutoLayout>
+          {inline ? (
+            <AutoLayout
+              name="Content Text Inline"
+              minWidth={60}
+              maxWidth={LAYOUT.textMaxW}
+              overflow="visible"
+              direction="horizontal"
+              verticalAlignItems="end"
+              spacing={6}
+              width="hug-contents"
+            >
+              <Text
+                fill={primaryText}
+                width="fill-parent"
+                maxWidth={LAYOUT.textMaxW - statusWidth - 6}
+                lineHeight={22}
+                fontSize={15}
+                letterSpacing={-0.4}
+              >
+                {text}
+              </Text>
+              <StatusAtom
+                {...reqChildProps}
+                color={labelText}
+                dir={dir}
+                name="_status-atom-inline"
+                width={statusWidth}
+              />
+            </AutoLayout>
+          ) : (
+            <AutoLayout
+              name="Content Text Below"
+              minWidth={60}
+              maxWidth={LAYOUT.textMaxW}
+              overflow="visible"
+              direction="vertical"
+              spacing={5}
+            >
+              <Text
+                fill={primaryText}
+                width="fill-parent"
+                lineHeight={22}
+                fontSize={15}
+                letterSpacing={-0.4}
+              >
+                {text}
+              </Text>
+              <AutoLayout width="fill-parent" horizontalAlignItems="end">
+                <StatusAtom
+                  {...reqChildProps}
+                  color={labelText}
+                  dir={dir}
+                  name="_status-atom-below"
+                  width={LAYOUT.statusWidthByDir[dir]}
+                />
+              </AutoLayout>
+            </AutoLayout>
+          )}
         </Container>
       )
     }
@@ -141,48 +234,103 @@ export function Message({ dir, theme, ...props }: PropByType[number] & MessagePr
       const source = imgSrc || PreviewImage64
 
       const { w, h } = getImageSize(source)
-      const maxW = layout.maxImageW
+      const maxW = LAYOUT.maxImageW
       let outW = w ? Math.min(w, maxW) : maxW
       let outH = h ? Math.round(h * (outW / (w || outW))) : Math.round((142 * outW) / 276)
       if (text) {
-        outW = Math.max(outW, layout.minImageW)
-        outH = Math.max(outH, layout.minImageH)
+        outW = Math.max(outW, LAYOUT.minImageW)
+        outH = Math.max(outH, LAYOUT.minImageH)
       }
+
+      const { inline } = lastLineFitsTime(text || "", dir as 0 | 1)
 
       return (
         <Container showBox={false}>
           {/* собственный bubble с фоном и обводкой */}
           <AutoLayout
             name="Bubble"
-            fill={color.surface[dir]}
-            stroke={color.surface[dir]}
+            fill={bubbleFill}
+            stroke={bubbleFill}
             strokeAlign="outside"
-            cornerRadius={layout.radius[dir]}
+            cornerRadius={LAYOUT.radius[dir]}
             overflow="visible"
             direction="vertical"
-            spacing={0}
+            spacing={inline ? 0 : 5}
             padding={{ vertical: 0, horizontal: 0 }}
             width="hug-contents"
             height="hug-contents"
+            effect={isIn ? { type: "background-blur", blur: 15 } : undefined}
           >
             <Image
               name="Photo"
               cornerRadius={{
-                topLeft:  layout.radius[dir].topLeft - 1,
-                topRight: layout.radius[dir].topRight - 1,
-                bottomRight: text ? 0 : layout.radius[dir].bottomRight - 1,
-                bottomLeft:  text ? 0 : layout.radius[dir].bottomLeft  - 1,
+                topLeft:  LAYOUT.radius[dir].topLeft - 1,
+                topRight: LAYOUT.radius[dir].topRight - 1,
+                bottomRight: text ? 0 : LAYOUT.radius[dir].bottomRight - 1,
+                bottomLeft:  text ? 0 : LAYOUT.radius[dir].bottomLeft  - 1,
               }}
               width={outW}
               height={outH}
               src={source}
             />
-            {/* подпись по ширине фото, с отступами — чтобы фон был виден */}
-            <AutoLayout name="Caption" hidden={!text} width={outW} padding={{ vertical: 8, horizontal: 14 }}>
-              <Text fill={color.text[`primary${dir}`]} width="fill-parent" lineHeight={22} fontSize={15} letterSpacing={-0.4}>
-                {text + "                "}
-              </Text>
-            </AutoLayout>
+
+            {text && (
+              inline ? (
+                <AutoLayout
+                  name="Caption Inline"
+                  width={outW}
+                  padding={{ vertical: 8, horizontal: 14 }}
+                  direction="horizontal"
+                  verticalAlignItems="end"
+                  spacing={6}
+                >
+                  <Text
+                    fill={primaryText}
+                    width="fill-parent"
+                    maxWidth={outW - 14 - 14 - LAYOUT.statusWidthByDir[dir] - 6}
+                    lineHeight={22}
+                    fontSize={15}
+                    letterSpacing={-0.4}
+                  >
+                    {text}
+                  </Text>
+                  <StatusAtom
+                    {...reqChildProps}
+                    color={labelText}
+                    dir={dir}
+                    name="_status-atom-inline"
+                    width={LAYOUT.statusWidthByDir[dir]}
+                  />
+                </AutoLayout>
+              ) : (
+                <AutoLayout
+                  name="Caption Below"
+                  width={outW}
+                  padding={{ vertical: 8, horizontal: 14 }}
+                  direction="vertical"
+                  spacing={5}
+                >
+                  <Text
+                    fill={primaryText}
+                    width="fill-parent"
+                    lineHeight={22}
+                    fontSize={15}
+                    letterSpacing={-0.4}
+                  >
+                    {text}
+                  </Text>
+                  <AutoLayout width="fill-parent" horizontalAlignItems="end">
+                    <StatusAtom
+                      {...reqChildProps}
+                      color={labelText}
+                      dir={dir}
+                      name="_status-atom-below"
+                      width={LAYOUT.statusWidthByDir[dir]}
+                    />
+                  </AutoLayout>
+                </AutoLayout>
+              )
+            )}
           </AutoLayout>
         </Container>
       )
